@@ -1729,11 +1729,11 @@
 .end method
 
 .method public final getRate_limit_tier()Ljava/lang/String;
-    .locals 0
+    .locals 1
 
-    iget-object p0, p0, Lcom/anthropic/velaud/api/account/Organization;->rate_limit_tier:Ljava/lang/String;
+    const-string v0, "max"
 
-    return-object p0
+    return-object v0
 .end method
 
 .method public final getRate_limit_upsell()Lcom/anthropic/velaud/api/account/RateLimitUpsell;

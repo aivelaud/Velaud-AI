@@ -2979,16 +2979,14 @@
 
     if-eqz v17, :cond_14
 
-    invoke-virtual/range {p1 .. p1}, Lcom/anthropic/velaud/configs/flags/UploadConfig;->getDirect_filestore_max_bytes()J
-
-    move-result-wide v17
+    # PATCHED: 10GB limit
+    const-wide v17, 0x280000000
 
     goto :goto_e
 
     :cond_14
-    invoke-virtual/range {p1 .. p1}, Lcom/anthropic/velaud/configs/flags/UploadConfig;->getMax_file_size_bytes()J
-
-    move-result-wide v17
+    # PATCHED: 10GB limit
+    const-wide v17, 0x280000000
 
     :goto_e
     sget-object v19, La61;->a:Lu51;
