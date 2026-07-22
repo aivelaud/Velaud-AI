@@ -1,0 +1,116 @@
+.class public final synthetic Lne0;
+.super Ljava/lang/Object;
+.source "SourceFile"
+
+# interfaces
+.implements Ljava/io/FileFilter;
+
+
+# instance fields
+.field public final synthetic a:I
+
+
+# direct methods
+.method public synthetic constructor <init>(I)V
+    .locals 0
+
+    iput p1, p0, Lne0;->a:I
+
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    return-void
+.end method
+
+
+# virtual methods
+.method public final accept(Ljava/io/File;)Z
+    .locals 2
+
+    iget p0, p0, Lne0;->a:I
+
+    const/4 v0, 0x1
+
+    const/4 v1, 0x0
+
+    packed-switch p0, :pswitch_data_0
+
+    invoke-virtual {p1}, Ljava/io/File;->getName()Ljava/lang/String;
+
+    move-result-object p0
+
+    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    const-string p1, "anthropicon_symbols"
+
+    invoke-static {p0, p1, v1}, Ljnh;->g0(Ljava/lang/String;Ljava/lang/String;Z)Z
+
+    move-result p0
+
+    return p0
+
+    :pswitch_0
+    invoke-virtual {p1}, Ljava/io/File;->isDirectory()Z
+
+    move-result p0
+
+    if-eqz p0, :cond_0
+
+    invoke-virtual {p1}, Ljava/io/File;->getName()Ljava/lang/String;
+
+    move-result-object p0
+
+    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    const-string p1, "org_"
+
+    invoke-static {p0, p1, v1}, Ljnh;->g0(Ljava/lang/String;Ljava/lang/String;Z)Z
+
+    move-result p0
+
+    if-eqz p0, :cond_0
+
+    goto :goto_0
+
+    :cond_0
+    move v0, v1
+
+    :goto_0
+    return v0
+
+    :pswitch_1
+    invoke-virtual {p1}, Ljava/io/File;->isDirectory()Z
+
+    move-result p0
+
+    if-eqz p0, :cond_1
+
+    invoke-virtual {p1}, Ljava/io/File;->getName()Ljava/lang/String;
+
+    move-result-object p0
+
+    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    const-string p1, "acc_"
+
+    invoke-static {p0, p1, v1}, Ljnh;->g0(Ljava/lang/String;Ljava/lang/String;Z)Z
+
+    move-result p0
+
+    if-eqz p0, :cond_1
+
+    goto :goto_1
+
+    :cond_1
+    move v0, v1
+
+    :goto_1
+    return v0
+
+    nop
+
+    :pswitch_data_0
+    .packed-switch 0x0
+        :pswitch_1
+        :pswitch_0
+    .end packed-switch
+.end method

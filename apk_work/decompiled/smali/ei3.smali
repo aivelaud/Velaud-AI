@@ -1,0 +1,68 @@
+.class public final Lei3;
+.super Ljava/lang/Object;
+.source "SourceFile"
+
+# interfaces
+.implements Liha;
+
+
+# instance fields
+.field public final synthetic a:I
+
+
+# direct methods
+.method public synthetic constructor <init>(I)V
+    .locals 0
+
+    iput p1, p0, Lei3;->a:I
+
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    return-void
+.end method
+
+.method private final b()V
+    .locals 0
+
+    return-void
+.end method
+
+.method private final c()V
+    .locals 0
+
+    return-void
+.end method
+
+.method private final d()V
+    .locals 0
+
+    return-void
+.end method
+
+.method private final e()V
+    .locals 0
+
+    return-void
+.end method
+
+.method private final f()V
+    .locals 0
+
+    return-void
+.end method
+
+.method private final g()V
+    .locals 0
+
+    return-void
+.end method
+
+
+# virtual methods
+.method public final a()V
+    .locals 0
+
+    iget p0, p0, Lei3;->a:I
+
+    return-void
+.end method

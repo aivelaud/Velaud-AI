@@ -1,0 +1,8 @@
+.class public interface abstract Lhql;
+.super Ljava/lang/Object;
+.source "SourceFile"
+
+
+# virtual methods
+.method public abstract a(Lfre;)V
+.end method

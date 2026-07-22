@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider android:description="@string/velaud_appwidget_description" android:minWidth="110.0dip" android:minHeight="110.0dip" android:updatePeriodMillis="0" android:initialLayout="@layout/velaud_appwidget_initial_layout" android:configure="com.anthropic.velaud.widget.VelaudWidgetConfigActivity" android:previewImage="@null" android:resizeMode="horizontal|vertical" android:minResizeWidth="110.0dip" android:minResizeHeight="110.0dip" android:widgetCategory="home_screen" android:widgetFeatures="configuration_optional|reconfigurable" android:maxResizeWidth="400.0dip" android:maxResizeHeight="400.0dip" android:targetCellWidth="2" android:targetCellHeight="2"
+  xmlns:android="http://schemas.android.com/apk/res/android" />

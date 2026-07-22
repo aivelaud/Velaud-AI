@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<voice-interaction-service android:sessionService="com.anthropic.velaud.bell.assist.VelaudVoiceInteractionSessionService" android:recognitionService="com.anthropic.velaud.bell.assist.VelaudRecognitionService" android:supportsAssist="true" android:supportsLaunchVoiceAssistFromKeyguard="false" android:supportsLocalInteraction="false"
+  xmlns:android="http://schemas.android.com/apk/res/android" />
