@@ -160,7 +160,7 @@
     <string name="artifacts_empty_state">Artifacts you’ve had with Claude will show up here.</string>
     <string name="artifacts_required_disabled_reason">Enable artifacts to use this tool</string>
     <string name="artifacts_wiggle_enabled_disabled_reason">Required by code execution</string>
-    <string name="ask_claude">Ask Claude</string>
+    <string name="ask_velaud">Ask Claude</string>
     <string name="ask_user_input_answer_prefix">A: %1$s</string>
     <string name="ask_user_input_custom_answer">Type your own answer…</string>
     <string name="ask_user_input_dismiss">Dismiss</string>
@@ -208,7 +208,7 @@ To manage your subscription, please do so on the platform where you purchased th
     <string name="break_suggestion_snooze">Snooze break</string>
     <string name="browser_takeover_complete_next_step">Complete next step in browser</string>
     <string name="browser_takeover_dismiss">Dismiss</string>
-    <string name="browser_takeover_done_message_for_claude">Done. Keep going.</string>
+    <string name="browser_takeover_done_message_for_velaud">Done. Keep going.</string>
     <string name="browser_takeover_hide_keyboard">Hide keyboard</string>
     <string name="browser_takeover_show_keyboard">Show keyboard</string>
     <string name="browser_takeover_user_instructions">Once you’re done, come back to continue</string>
@@ -997,24 +997,24 @@ To manage your subscription, please do so on the platform where you purchased th
     <string name="classic_memory_flip_back_confirm">Switch</string>
     <string name="classic_memory_flip_back_message">You’ll switch back to the previous (legacy) memory system.</string>
     <string name="classic_memory_flip_back_title">Switch to Classic memory?</string>
-    <string name="claude_appwidget_description">Start a chat with Claude</string>
-    <string name="claude_logo_content_description">Claude</string>
-    <string name="claude_spark_content_description">Claude logo</string>
-    <string name="claude_spark_content_description_thinking">Claude is thinking</string>
-    <string name="claude_spark_content_description_writing">Claude is writing</string>
-    <string name="claude_widget_button_artifacts">Artifacts</string>
-    <string name="claude_widget_button_camera">Camera</string>
-    <string name="claude_widget_button_chats">Chats</string>
-    <string name="claude_widget_button_code">Code</string>
-    <string name="claude_widget_button_dictation">Dictation</string>
-    <string name="claude_widget_button_dispatch">Dispatch</string>
-    <string name="claude_widget_button_photo_library">Photo library</string>
-    <string name="claude_widget_button_projects">Projects</string>
-    <string name="claude_widget_button_voice">Voice chat</string>
-    <string name="claude_widget_chat_button">Chat</string>
-    <string name="claude_widget_chat_button_medium">How can I help you today?</string>
-    <string name="claude_widget_config_slot">Button %1$d</string>
-    <string name="claude_widget_config_title">Configure widget</string>
+    <string name="velaud_appwidget_description">Start a chat with Claude</string>
+    <string name="velaud_logo_content_description">Claude</string>
+    <string name="velaud_spark_content_description">Claude logo</string>
+    <string name="velaud_spark_content_description_thinking">Claude is thinking</string>
+    <string name="velaud_spark_content_description_writing">Claude is writing</string>
+    <string name="velaud_widget_button_artifacts">Artifacts</string>
+    <string name="velaud_widget_button_camera">Camera</string>
+    <string name="velaud_widget_button_chats">Chats</string>
+    <string name="velaud_widget_button_code">Code</string>
+    <string name="velaud_widget_button_dictation">Dictation</string>
+    <string name="velaud_widget_button_dispatch">Dispatch</string>
+    <string name="velaud_widget_button_photo_library">Photo library</string>
+    <string name="velaud_widget_button_projects">Projects</string>
+    <string name="velaud_widget_button_voice">Voice chat</string>
+    <string name="velaud_widget_chat_button">Chat</string>
+    <string name="velaud_widget_chat_button_medium">How can I help you today?</string>
+    <string name="velaud_widget_config_slot">Button %1$d</string>
+    <string name="velaud_widget_config_title">Configure widget</string>
     <string name="clawd_laptop_content_description">Clawd typing on a laptop</string>
     <string name="clawd_soccer_content_description">Clawd playing soccer</string>
     <string name="close_drawer">Close navigation menu</string>
@@ -1081,7 +1081,7 @@ To manage your subscription, please do so on the platform where you purchased th
     <string name="completion_notification_upsell_description">Feel free to step away, Claude will notify you as soon as it responds.</string>
     <string name="completion_notification_upsell_title">Get notified when Claude responds</string>
     <string name="confirm_device_credential_password">Use password</string>
-    <string name="connect_your_account_on_claude_ai">Connect your account on <annotation textColor="claudeClay"><a href="^1">claude.ai</a></annotation></string>
+    <string name="connect_your_account_on_velaud_ai">Connect your account on <annotation textColor="claudeClay"><a href="^1">claude.ai</a></annotation></string>
     <string name="connected_apps_card_collapse">Hide %1$s tools</string>
     <string name="connected_apps_card_expand">Show %1$s tools</string>
     <string name="connected_apps_disclaimer_title">Warning</string>
@@ -1168,7 +1168,7 @@ To manage your subscription, please do so on the platform where you purchased th
     <string name="cowork_empty_all_tasks_archived_title">All tasks are archived</string>
     <string name="cowork_empty_no_tasks_found_title">No tasks found.</string>
     <string name="cowork_empty_no_tasks_subtitle">What will you hand off to Claude?</string>
-    <string name="cowork_empty_what_can_claude_tackle_title">What can I take off your plate?</string>
+    <string name="cowork_empty_what_can_velaud_tackle_title">What can I take off your plate?</string>
     <string name="cowork_scheduled_empty_subtitle">Runs from your scheduled tasks will show up here</string>
     <string name="cowork_scheduled_empty_title">No scheduled runs</string>
     <string name="cowork_starter_benefit_check_in_anywhere">Check in from your phone, browser, or Claude desktop app.</string>
@@ -2022,7 +2022,7 @@ Please log in again."</string>
     <string name="quiet_hours_adjust">Adjust quiet hours</string>
     <string name="quiet_hours_body">You asked Claude to remind you to step away around now.</string>
     <string name="quiet_hours_headline">It’s quiet hours.</string>
-    <string name="quiet_hours_open_claude">Open Claude</string>
+    <string name="quiet_hours_open_velaud">Open Claude</string>
     <string name="rate_limit_approaching">In progress</string>
     <string name="rate_limit_model_reached">Loading</string>
     <string name="rate_limit_notice_out_of_messages">Continue your conversation</string>
@@ -2222,7 +2222,7 @@ Please log in again."</string>
     <string name="settings_title_choose_pace">Pace</string>
     <string name="settings_title_choose_voice">Voice</string>
     <string name="settings_title_developer">Developer</string>
-    <string name="settings_title_help_improve_claude">Help improve Claude</string>
+    <string name="settings_title_help_improve_velaud">Help improve Claude</string>
     <string name="settings_title_language">Language</string>
     <string name="settings_title_model">Model</string>
     <string name="settings_tool_access">Tool access</string>
