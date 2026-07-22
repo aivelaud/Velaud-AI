@@ -1108,4 +1108,9 @@
     <attr name="yearSelectedStyle" format="reference" />
     <attr name="yearStyle" format="reference" />
     <attr name="yearTodayStyle" format="reference" />
+    <attr name="state_liftable" format="boolean" />
+    <attr name="state_lifted" format="boolean" />
+    <attr name="state_dragged" format="boolean" />
+    <attr name="state_with_icon" format="boolean" />
+    <attr name="glance_isTopLevelLayout" format="boolean" />
 </resources>
