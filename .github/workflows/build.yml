@@ -1,4 +1,4 @@
-name: Build Velaud AI APK
+name: Build Claude AI APK
 
 on:
   push:
@@ -33,26 +33,26 @@ jobs:
       - name: Build APK with Apktool
         working-directory: apk_work/decompiled
         run: |
-          apktool b . -o ../../velaud-unsigned.apk --use-aapt2
-          echo "Build tamamlandi: $(ls -lh ../../velaud-unsigned.apk)"
+          apktool b . -o ../../claude-unsigned.apk --use-aapt2
+          echo "Build tamamlandi: $(ls -lh ../../claude-unsigned.apk)"
 
       - name: Generate Debug Keystore
         run: |
           keytool -genkey -v \
-            -keystore velaud-debug.keystore \
-            -alias velaud \
+            -keystore claude-debug.keystore \
+            -alias claude \
             -keyalg RSA \
             -keysize 2048 \
             -validity 10000 \
-            -storepass velaud123 \
-            -keypass velaud123 \
-            -dname "CN=Velaud AI, OU=Dev, O=Velaud, L=Istanbul, ST=Istanbul, C=TR"
+            -storepass claude123 \
+            -keypass claude123 \
+            -dname "CN=Claude AI, OU=Dev, O=Claude, L=Istanbul, ST=Istanbul, C=TR"
 
       - name: Align APK
         run: |
           BUILD_TOOLS=$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
           $ANDROID_HOME/build-tools/$BUILD_TOOLS/zipalign \
-            -v 4 velaud-unsigned.apk velaud-aligned.apk
+            -v 4 claude-unsigned.apk claude-aligned.apk
           echo "Zipalign tamamlandi"
 
       - name: Sign APK
@@ -60,19 +60,19 @@ jobs:
           BUILD_TOOLS=$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
           $ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner \
             sign \
-            --ks velaud-debug.keystore \
-            --ks-key-alias velaud \
-            --ks-pass pass:velaud123 \
-            --key-pass pass:velaud123 \
-            --out velaud-signed.apk \
-            velaud-aligned.apk
-          echo "Imzalama tamamlandi: $(ls -lh velaud-signed.apk)"
+            --ks claude-debug.keystore \
+            --ks-key-alias claude \
+            --ks-pass pass:claude123 \
+            --key-pass pass:claude123 \
+            --out claude-signed.apk \
+            claude-aligned.apk
+          echo "Imzalama tamamlandi: $(ls -lh claude-signed.apk)"
 
       - name: Verify APK
         run: |
           BUILD_TOOLS=$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
           $ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner \
-            verify --verbose velaud-signed.apk
+            verify --verbose claude-signed.apk
 
       - name: Get version info
         id: version
@@ -87,8 +87,8 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Velaud-AI-v${{ steps.version.outputs.version }}-${{ github.run_number }}
-          path: velaud-signed.apk
+          name: Claude-AI-v${{ steps.version.outputs.version }}-${{ github.run_number }}
+          path: claude-signed.apk
           retention-days: 30
 
       - name: Create Release (main branch only)
@@ -96,9 +96,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}-build${{ github.run_number }}
-          name: "Velaud AI v${{ steps.version.outputs.version }} (Build ${{ github.run_number }})"
+          name: "Claude AI v${{ steps.version.outputs.version }} (Build ${{ github.run_number }})"
           body: |
-            ## Velaud AI APK
+            ## Claude AI APK
 
             **Versiyon:** ${{ steps.version.outputs.version }}
             **Build:** ${{ steps.version.outputs.build }}
@@ -112,7 +112,7 @@ jobs:
 
             ### Kurulum
             APK'yi indir -> Yukle (Bilinmeyen kaynaklara izin ver)
-          files: velaud-signed.apk
+          files: claude-signed.apk
           draft: false
           prerelease: false
         env:

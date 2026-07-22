@@ -1,4 +1,4 @@
-# Velaud AI
+# Claude AI
 
 > Yapay zeka destekli akıllı çözümler platformu.
 
@@ -6,7 +6,7 @@
 
 ## Hakkında
 
-**Velaud AI**, modern yapay zeka teknolojilerini kullanarak kullanıcılara güçlü, ölçeklenebilir ve akıllı çözümler sunan bir platformdur. Doğal dil işleme, makine öğrenmesi ve otomasyon yetenekleriyle iş süreçlerini dönüştürmeyi hedefler.
+**Claude AI**, modern yapay zeka teknolojilerini kullanarak kullanıcılara güçlü, ölçeklenebilir ve akıllı çözümler sunan bir platformdur. Doğal dil işleme, makine öğrenmesi ve otomasyon yetenekleriyle iş süreçlerini dönüştürmeyi hedefler.
 
 ---
 
@@ -25,8 +25,8 @@
 
 ```bash
 # Repoyu klonlayın
-git clone https://github.com/aivelaud/Velaud-AI.git
-cd Velaud-AI
+git clone https://github.com/aiclaude/Claude-AI.git
+cd Claude-AI
 
 # Bağımlılıkları yükleyin
 pnpm install
@@ -56,7 +56,7 @@ pnpm run dev
 ## Proje Yapısı
 
 ```
-Velaud-AI/
+Claude-AI/
 ├── artifacts/          # Uygulamalar (API sunucusu, frontend)
 ├── lib/                # Paylaşılan kütüphaneler
 │   ├── api-client-react/   # Üretilen API hooks
@@ -87,9 +87,9 @@ Bu proje MIT lisansı altında dağıtılmaktadır. Detaylar için [LICENSE](LIC
 
 ## İletişim
 
-- GitHub: [@aivelaud](https://github.com/aivelaud)
-- Proje: [https://github.com/aivelaud/Velaud-AI](https://github.com/aivelaud/Velaud-AI)
+- GitHub: [@aiclaude](https://github.com/aiclaude)
+- Proje: [https://github.com/aiclaude/Claude-AI](https://github.com/aiclaude/Claude-AI)
 
 ---
 
-<p align="center">Made with ❤️ by Velaud AI</p>
+<p align="center">Made with ❤️ by Claude AI</p>
