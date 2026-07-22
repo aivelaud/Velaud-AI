@@ -61,34 +61,9 @@
 
 # virtual methods
 .method public final a()I
-    .locals 3
+    .locals 0
 
-    iget-object p0, p0, Lpae;->c:Lghh;
-
-    invoke-interface {p0}, Lghh;->getValue()Ljava/lang/Object;
-
-    move-result-object p0
-
-    check-cast p0, Lcom/anthropic/velaud/models/organization/configtypes/ProjectsLimitsConfig;
-
-    if-nez p0, :cond_0
-
-    const-string p0, "ProjectsLimitsManager: projects_limits config is null"
-
-    const/4 v0, 0x7
-
-    const/4 v1, 0x0
-
-    const/4 v2, 0x0
-
-    invoke-static {p0, v1, v2, v1, v0}, Lb40;->y(Ljava/lang/String;Lhsg;ZLjava/util/List;I)V
-
-    return v2
-
-    :cond_0
-    invoke-virtual {p0}, Lcom/anthropic/velaud/models/organization/configtypes/ProjectsLimitsConfig;->getMax_free_projects()I
-
-    move-result p0
+    const/16 p0, 0x270F
 
     return p0
 .end method

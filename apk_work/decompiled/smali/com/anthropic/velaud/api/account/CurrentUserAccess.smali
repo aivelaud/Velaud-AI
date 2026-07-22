@@ -418,62 +418,9 @@
 
 # virtual methods
 .method public final accountStatusFor(Lcom/anthropic/velaud/api/feature/Feature;)Lcom/anthropic/velaud/api/account/FeatureAccessStatus;
-    .locals 4
+    .locals 1
 
-    invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    iget-object p0, p0, Lcom/anthropic/velaud/api/account/CurrentUserAccess;->account_features:Ljava/util/List;
-
-    check-cast p0, Ljava/lang/Iterable;
-
-    invoke-interface {p0}, Ljava/lang/Iterable;->iterator()Ljava/util/Iterator;
-
-    move-result-object p0
-
-    :cond_0
-    invoke-interface {p0}, Ljava/util/Iterator;->hasNext()Z
-
-    move-result v0
-
-    const/4 v1, 0x0
-
-    if-eqz v0, :cond_1
-
-    invoke-interface {p0}, Ljava/util/Iterator;->next()Ljava/lang/Object;
-
-    move-result-object v0
-
-    move-object v2, v0
-
-    check-cast v2, Lcom/anthropic/velaud/api/account/FeatureAccess;
-
-    invoke-virtual {v2}, Lcom/anthropic/velaud/api/account/FeatureAccess;->getFeature()Ljava/lang/String;
-
-    move-result-object v2
-
-    invoke-virtual {p1}, Lcom/anthropic/velaud/api/feature/Feature;->getValue()Ljava/lang/String;
-
-    move-result-object v3
-
-    invoke-static {v2, v3}, Lbo9;->p(Ljava/lang/Object;Ljava/lang/Object;)Z
-
-    move-result v2
-
-    if-eqz v2, :cond_0
-
-    goto :goto_0
-
-    :cond_1
-    move-object v0, v1
-
-    :goto_0
-    check-cast v0, Lcom/anthropic/velaud/api/account/FeatureAccess;
-
-    if-eqz v0, :cond_2
-
-    invoke-virtual {v0}, Lcom/anthropic/velaud/api/account/FeatureAccess;->getStatus()Lcom/anthropic/velaud/api/account/FeatureAccessStatus;
-
-    move-result-object p0
+    sget-object p0, Lcom/anthropic/velaud/api/account/FeatureAccessStatus;->AVAILABLE:Lcom/anthropic/velaud/api/account/FeatureAccessStatus;
 
     return-object p0
 
@@ -644,62 +591,9 @@
 .end method
 
 .method public final statusFor(Lcom/anthropic/velaud/api/feature/Feature;)Lcom/anthropic/velaud/api/account/FeatureAccessStatus;
-    .locals 4
+    .locals 1
 
-    invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    iget-object p0, p0, Lcom/anthropic/velaud/api/account/CurrentUserAccess;->features:Ljava/util/List;
-
-    check-cast p0, Ljava/lang/Iterable;
-
-    invoke-interface {p0}, Ljava/lang/Iterable;->iterator()Ljava/util/Iterator;
-
-    move-result-object p0
-
-    :cond_0
-    invoke-interface {p0}, Ljava/util/Iterator;->hasNext()Z
-
-    move-result v0
-
-    const/4 v1, 0x0
-
-    if-eqz v0, :cond_1
-
-    invoke-interface {p0}, Ljava/util/Iterator;->next()Ljava/lang/Object;
-
-    move-result-object v0
-
-    move-object v2, v0
-
-    check-cast v2, Lcom/anthropic/velaud/api/account/FeatureAccess;
-
-    invoke-virtual {v2}, Lcom/anthropic/velaud/api/account/FeatureAccess;->getFeature()Ljava/lang/String;
-
-    move-result-object v2
-
-    invoke-virtual {p1}, Lcom/anthropic/velaud/api/feature/Feature;->getValue()Ljava/lang/String;
-
-    move-result-object v3
-
-    invoke-static {v2, v3}, Lbo9;->p(Ljava/lang/Object;Ljava/lang/Object;)Z
-
-    move-result v2
-
-    if-eqz v2, :cond_0
-
-    goto :goto_0
-
-    :cond_1
-    move-object v0, v1
-
-    :goto_0
-    check-cast v0, Lcom/anthropic/velaud/api/account/FeatureAccess;
-
-    if-eqz v0, :cond_2
-
-    invoke-virtual {v0}, Lcom/anthropic/velaud/api/account/FeatureAccess;->getStatus()Lcom/anthropic/velaud/api/account/FeatureAccessStatus;
-
-    move-result-object p0
+    sget-object p0, Lcom/anthropic/velaud/api/account/FeatureAccessStatus;->AVAILABLE:Lcom/anthropic/velaud/api/account/FeatureAccessStatus;
 
     return-object p0
 

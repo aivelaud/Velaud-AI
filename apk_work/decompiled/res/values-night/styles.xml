@@ -9,8 +9,8 @@
     </style>
     <style name="Theme.Velaud.Splash" parent="@style/Theme.SplashScreen">
         <item name="isLightTheme">false</item>
-        <item name="postSplashScreenTheme">@style/Theme.Velaud</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/logo_velaud_splash</item>
+        <item name="postSplashScreenTheme">@style/Theme.Claude</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/logo_claude_splash</item>
         <item name="windowSplashScreenBackground">@color/bg100</item>
     </style>
 </resources>

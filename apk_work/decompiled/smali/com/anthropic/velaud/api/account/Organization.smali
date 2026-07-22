@@ -1737,9 +1737,9 @@
 .end method
 
 .method public final getRate_limit_upsell()Lcom/anthropic/velaud/api/account/RateLimitUpsell;
-    .locals 0
+    .locals 1
 
-    iget-object p0, p0, Lcom/anthropic/velaud/api/account/Organization;->rate_limit_upsell:Lcom/anthropic/velaud/api/account/RateLimitUpsell;
+    sget-object p0, Lcom/anthropic/velaud/api/account/RateLimitUpsell;->UNKNOWN:Lcom/anthropic/velaud/api/account/RateLimitUpsell;
 
     return-object p0
 .end method
