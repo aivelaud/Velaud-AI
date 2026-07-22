@@ -34,10 +34,39 @@ jobs:
           apktool --version
 
       - name: Build APK with Apktool
-        working-directory: apk_work/decompiled
         run: |
-          apktool b . -o ../../claude-unsigned.apk --use-aapt2
-          echo "Build tamamlandi: $(ls -lh ../../claude-unsigned.apk)"
+          # Sadece smali -> dex derle (aapt2 resources.arsc rebuild'i atla)
+          # --no-res: resources.arsc'yi yeniden derleme, sadece dex uret
+          apktool b apk_work/decompiled --no-res -o /tmp/rebuilt-dex.apk
+          echo "DEX rebuild tamamlandi:"
+          unzip -l /tmp/rebuilt-dex.apk | grep "classes"
+
+          # Orijinal base.apk'yi temel al (dogru resources.arsc + tum res/ dosyalari)
+          cp apk_work/extracted/base.apk claude-unsigned.apk
+          echo "Orijinal base.apk: $(ls -lh claude-unsigned.apk)"
+
+          # Eski imzalari ve eski dex dosyalarini kaldir
+          zip -d claude-unsigned.apk "META-INF/*" 2>/dev/null || true
+          zip -d claude-unsigned.apk "classes.dex" "classes2.dex" "classes3.dex" 2>/dev/null || true
+
+          # Yeni dex dosyalarini cikar ve APK'ya uncompressed olarak ekle (Android standardi)
+          mkdir -p /tmp/new-dex
+          unzip -j /tmp/rebuilt-dex.apk "classes*.dex" -d /tmp/new-dex/
+          echo "Yeni dex dosyalari:"
+          ls -lh /tmp/new-dex/
+          (cd /tmp/new-dex && zip -0 $GITHUB_WORKSPACE/claude-unsigned.apk classes*.dex)
+
+          # Kullanicinin ekledigi icon dosyalarini APK'ya ekle
+          (cd apk_work/decompiled && \
+            find res -name "ic_launcher_velaud*" -type f | while IFS= read -r f; do \
+              echo "Icon ekleniyor: $f"; \
+              zip $GITHUB_WORKSPACE/claude-unsigned.apk "$f"; \
+            done)
+
+          echo ""
+          echo "=== BUILD SONUCU ==="
+          echo "APK boyutu: $(ls -lh claude-unsigned.apk)"
+          echo "Dosya sayisi: $(unzip -l claude-unsigned.apk | tail -1)"
 
       - name: Generate Debug Keystore
         run: |
@@ -67,6 +96,9 @@ jobs:
             --ks-key-alias claude \
             --ks-pass pass:claude123 \
             --key-pass pass:claude123 \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
             --out claude-signed.apk \
             claude-aligned.apk
           echo "Imzalama tamamlandi: $(ls -lh claude-signed.apk)"
