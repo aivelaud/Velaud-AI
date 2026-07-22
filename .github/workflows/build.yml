@@ -35,26 +35,33 @@ jobs:
 
       - name: Build APK with Apktool
         run: |
-          # Sadece smali -> dex derle (aapt2 resources.arsc rebuild'i atla)
-          # --no-res: resources.arsc'yi yeniden derleme, sadece dex uret
-          apktool b apk_work/decompiled --no-res -o /tmp/rebuilt-dex.apk
-          echo "DEX rebuild tamamlandi:"
-          unzip -l /tmp/rebuilt-dex.apk | grep "classes"
+          # Sadece smali -> dex ve manifest derle (resources.arsc rebuild atlanir)
+          # --no-res: aapt2 ile resources.arsc derleme (bozuk output'u onlemek icin)
+          apktool b apk_work/decompiled --no-res -o /tmp/rebuilt.apk
+          echo "Apktool rebuild tamamlandi"
+          echo "Rebuilt APK icindekiler:"
+          unzip -l /tmp/rebuilt.apk | grep -E "classes|AndroidManifest"
 
           # Orijinal base.apk'yi temel al (dogru resources.arsc + tum res/ dosyalari)
           cp apk_work/extracted/base.apk claude-unsigned.apk
           echo "Orijinal base.apk: $(ls -lh claude-unsigned.apk)"
 
-          # Eski imzalari ve eski dex dosyalarini kaldir
+          # Eski imzalari, eski dex'leri ve eski manifest'i kaldir
           zip -d claude-unsigned.apk "META-INF/*" 2>/dev/null || true
           zip -d claude-unsigned.apk "classes.dex" "classes2.dex" "classes3.dex" 2>/dev/null || true
+          zip -d claude-unsigned.apk "AndroidManifest.xml" 2>/dev/null || true
 
-          # Yeni dex dosyalarini cikar ve APK'ya uncompressed olarak ekle (Android standardi)
-          mkdir -p /tmp/new-dex
-          unzip -j /tmp/rebuilt-dex.apk "classes*.dex" -d /tmp/new-dex/
-          echo "Yeni dex dosyalari:"
-          ls -lh /tmp/new-dex/
-          (cd /tmp/new-dex && zip -0 $GITHUB_WORKSPACE/claude-unsigned.apk classes*.dex)
+          # Apktool'un yeniden derledigini alanlari cikar
+          mkdir -p /tmp/rebuilt-files
+          unzip -j /tmp/rebuilt.apk "classes*.dex" "AndroidManifest.xml" -d /tmp/rebuilt-files/
+          echo "Cikartilan dosyalar:"
+          ls -lh /tmp/rebuilt-files/
+
+          # Yeni dex'leri APK'ya uncompressed ekle (Android standardi)
+          (cd /tmp/rebuilt-files && zip -0 $GITHUB_WORKSPACE/claude-unsigned.apk classes*.dex)
+
+          # Yeni AndroidManifest.xml'i APK'ya ekle (split gereksinimleri kaldirildi)
+          (cd /tmp/rebuilt-files && zip $GITHUB_WORKSPACE/claude-unsigned.apk AndroidManifest.xml)
 
           # Kullanicinin ekledigi icon dosyalarini APK'ya ekle
           (cd apk_work/decompiled && \
@@ -108,6 +115,9 @@ jobs:
           BUILD_TOOLS=$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
           $ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner \
             verify --verbose claude-signed.apk
+          echo ""
+          echo "=== MANIFEST KONTROL ==="
+          unzip -p claude-signed.apk AndroidManifest.xml | strings | grep -o 'requiredSplitTypes\|splits\.required\|com\.anthropic\.[a-z]*' | head -10 || echo "Split gereksinimleri yok - OK"
 
       - name: Get version info
         id: version
@@ -147,6 +157,7 @@ jobs:
 
             ### Kurulum
             APK'yi indir -> Yukle (Bilinmeyen kaynaklara izin ver)
+            NOT: Cihazda varsa once mevcut Claude'u kaldir, sonra yukle
           files: claude-signed.apk
           draft: false
           prerelease: false
