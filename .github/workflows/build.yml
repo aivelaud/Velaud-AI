@@ -385,12 +385,12 @@ jobs:
           # Orijinal split_config'i zip'ten çıkar
           unzip -o apk_work/base.apk.zip -d orig_dir/ || true
 
-          # Build the split from the ARM64 native libraries.
-          SPLIT_SRC="apk_work/decompiled/lib/arm64-v8a"
-          test -d "$SPLIT_SRC" || { echo "✗ arm64 lib kaynağı bulunamadı"; exit 1; }
-          echo "→ arm64 lib'lerden split_config paketi oluşturuluyor"
-          mkdir -p split_work/lib/arm64-v8a
-          cp "$SPLIT_SRC"/*.so split_work/lib/arm64-v8a/
+          # Use the exact same version metadata as the base APK.
+          VERSION_CODE=$(grep "versionCode:" apk_work/decompiled/apktool.yml | awk '{print $2}')
+          VERSION_NAME=$(grep "versionName:" apk_work/decompiled/apktool.yml | awk '{print $2}')
+          test -n "$VERSION_CODE" || { echo "✗ versionCode bulunamadı"; exit 1; }
+          test -n "$VERSION_NAME" || { echo "✗ versionName bulunamadı"; exit 1; }
+          echo "Split version: ${VERSION_NAME} (${VERSION_CODE})"
 
           # Compile the manifest to Android binary XML before signing.
           printf '%s\n' \
@@ -410,16 +410,18 @@ jobs:
             -I "$FRAMEWORK" \
             --min-sdk-version 32 \
             --target-sdk-version 36 \
-            --version-code 1 \
-            --version-name 1.0 \
+            --version-code "$VERSION_CODE" \
+            --version-name "$VERSION_NAME" \
             -F split-unsigned.apk
 
           # aapt writes the binary AndroidManifest.xml; append the native libraries.
           (cd split_work && zip -q -r ../split-unsigned.apk lib/)
           echo "split-unsigned.apk oluşturuldu ($(du -sh split-unsigned.apk | cut -f1))"
           unzip -p split-unsigned.apk AndroidManifest.xml | file -
-          ./aapt dump badging split-unsigned.apk | grep -E "package:|split="
-
+          SPLIT_BADGING=$(./aapt dump badging split-unsigned.apk)
+          printf '%s\n' "$SPLIT_BADGING" | grep -E "package:|split="
+          printf '%s\n' "$SPLIT_BADGING" | grep -q "versionCode='$VERSION_CODE'" || { echo "✗ Split versionCode ana APK ile eşleşmiyor"; exit 1; }
+          echo "✓ Split versionCode doğrulandı: $VERSION_CODE"
           # Zipalign + İmzala
           $BT/zipalign -p -f -v 4 split-unsigned.apk split-aligned.apk
           $BT/apksigner sign \
