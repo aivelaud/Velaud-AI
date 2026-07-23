@@ -88,6 +88,13 @@ jobs:
               text
           )
 
+          # The original Application class has a different class name, not just a
+          # different package. Point the manifest at the patched DEX class.
+          text = text.replace(
+              'com.anthropic.velaud.application.ClaudeApplication',
+              'com.anthropic.velaud.application.VelaudApplication'
+          )
+
           manifest.write_text(text, encoding="utf-8")
           print("✓ Class isimleri velaud namespace'e normalize edildi")
           PY
@@ -143,7 +150,7 @@ jobs:
           # VelaudApplication velaud namespace'inde olmalı (DEX'teki gerçek class)
           grep -q 'com.anthropic.velaud.application.VelaudApplication' AndroidManifest.xml \
             && echo "✓ VelaudApplication (velaud) mevcut" \
-            || echo "✗ UYARI: VelaudApplication bulunamadı"
+            || { echo "✗ VelaudApplication bulunamadı"; exit 1; }
 
           # MainActivity velaud namespace'inde olmalı
           grep -q 'com.anthropic.velaud.mainactivity.MainActivity' AndroidManifest.xml \
