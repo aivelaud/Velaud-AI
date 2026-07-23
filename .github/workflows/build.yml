@@ -392,25 +392,34 @@ jobs:
             mkdir -p split_work/lib/arm64-v8a
             cp "$SPLIT_SRC"/*.so split_work/lib/arm64-v8a/
 
-            # Minimal split manifest
+            # Minimal split manifest. It must be compiled to Android binary XML
+          # before signing; apksigner rejects a plain-text manifest inside an APK.
           printf '%s\n' \
             '<?xml version="1.0" encoding="utf-8"?>' \
             '<manifest xmlns:android="http://schemas.android.com/apk/res/android"' \
             '    package="com.anthropic.claude"' \
-            '    android:versionCode="1"' \
             '    split="config.arm64_v8a">' \
             '    <uses-sdk android:minSdkVersion="32" android:targetSdkVersion="36"/>' \
             '    <application/>' \
             '</manifest>' \
             > split_work/AndroidManifest.xml
 
-            cd split_work && zip -r ../split-unsigned.apk lib/ AndroidManifest.xml && cd ..
-            echo "split-unsigned.apk oluşturuldu ($(du -sh split-unsigned.apk | cut -f1))"
-          else
-            echo "✗ arm64 lib kaynağı bulunamadı"
-            exit 1
-          fi
+          FRAMEWORK=$(find "$HOME/.local/share/apktool/framework" -name 1.apk -print -quit)
+          test -n "$FRAMEWORK" || { echo "✗ Android framework APK bulunamadı"; exit 1; }
+          ./aapt package -f \
+            -M split_work/AndroidManifest.xml \
+            -I "$FRAMEWORK" \
+            --min-sdk-version 32 \
+            --target-sdk-version 36 \
+            --version-code 1 \
+            --version-name 1.0 \
+            -F split-unsigned.apk
 
+          # aapt writes the binary AndroidManifest.xml; append the native libraries.
+          (cd split_work && zip -q -r ../split-unsigned.apk lib/)
+          echo "split-unsigned.apk oluşturuldu ($(du -sh split-unsigned.apk | cut -f1))"
+          unzip -p split-unsigned.apk AndroidManifest.xml | file -
+          ./aapt dump badging split-unsigned.apk | grep -E "package:|split="
           # Zipalign + İmzala
           $BT/zipalign -p -f -v 4 split-unsigned.apk split-aligned.apk
           $BT/apksigner sign \
