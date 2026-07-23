@@ -79,7 +79,37 @@ jobs:
           echo "=== ARM64 native lib'leri ekleniyor ==="
           mkdir -p work/lib/arm64-v8a/
           cp apk_work/decompiled/lib/arm64-v8a/*.so work/lib/arm64-v8a/
+          echo "Eklenen lib'ler:"
           ls -lh work/lib/arm64-v8a/
+
+      - name: splits0.xml temizle (standalone APK için - split gereksinimi kaldır)
+        run: |
+          echo "=== splits0.xml temizleniyor ==="
+          # Bu dosya Android'e hangi split APK'ların gerekli olduğunu söyler.
+          # Standalone APK olarak kurulabilmesi için boşaltılması gerekiyor.
+          SPLITS_FILE="work/res/xml/splits0.xml"
+          if [ -f "$SPLITS_FILE" ]; then
+            echo "Mevcut splits0.xml:"
+            cat "$SPLITS_FILE"
+            echo ""
+            # Boş splits tanımına sıfırla - hiçbir split gerekmediğini belirt
+            cat > "$SPLITS_FILE" << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<splits>
+    <module name=""></module>
+</splits>
+EOF
+            echo "✓ splits0.xml sıfırlandı (standalone APK)"
+          else
+            echo "splits0.xml bulunamadı, atlanıyor"
+          fi
+
+          # Eğer original/ içinde binary manifest varsa sil (apktool kendi decode'unu kullansın)
+          if [ -d "work/original" ]; then
+            echo "=== original/ dizini siliniyor (binary manifest bypass) ==="
+            rm -rf work/original/
+            echo "✓ original/ silindi"
+          fi
 
       - name: apktool.yml güncelle (package rename + doNotCompress)
         working-directory: work
@@ -87,10 +117,19 @@ jobs:
           echo "=== Mevcut apktool.yml ==="
           cat apktool.yml
 
-          # Package rename ekle (yoksa)
+          # Package rename - birden fazla format için güvenli ekleme
           if ! grep -q "renameManifestPackage" apktool.yml; then
-            sed -i 's/forcedPackageId: 127/forcedPackageId: 127\n  renameManifestPackage: com.anthropic.velaud/' apktool.yml
-            echo "→ renameManifestPackage eklendi"
+            # forcedPackageId satırının hemen altına ekle (127 veya '0x7f' formatları)
+            if grep -q "forcedPackageId:" apktool.yml; then
+              sed -i '/forcedPackageId:/a\  renameManifestPackage: com.anthropic.velaud' apktool.yml
+              echo "→ renameManifestPackage eklendi (forcedPackageId altına)"
+            else
+              # packageInfo bloğu yoksa ekle
+              printf '\npackageInfo:\n  forcedPackageId: 127\n  renameManifestPackage: com.anthropic.velaud\n' >> apktool.yml
+              echo "→ packageInfo bloğu + renameManifestPackage eklendi"
+            fi
+          else
+            echo "→ renameManifestPackage zaten mevcut"
           fi
 
           # doNotCompress ekle/güncelle
@@ -98,14 +137,23 @@ jobs:
             printf '\ndoNotCompress:\n- dex\n- so\n- resources.arsc\n' >> apktool.yml
             echo "→ doNotCompress listesi eklendi"
           else
-            grep -q "^\- dex" apktool.yml || sed -i '/^doNotCompress:/a - dex' apktool.yml
-            grep -q "^\- so"  apktool.yml || sed -i '/^doNotCompress:/a - so'  apktool.yml
+            grep -q "^- dex" apktool.yml || sed -i '/^doNotCompress:/a - dex' apktool.yml
+            grep -q "^- so"  apktool.yml || sed -i '/^doNotCompress:/a - so'  apktool.yml
             echo "→ doNotCompress güncellendi"
           fi
 
           echo ""
           echo "=== Güncellenmiş apktool.yml ==="
           cat apktool.yml
+
+      - name: Manifest package rename doğrula
+        working-directory: work
+        run: |
+          echo "=== AndroidManifest.xml package kontrolü ==="
+          grep -i "package" AndroidManifest.xml | head -5 || true
+          echo ""
+          echo "=== apktool.yml renameManifestPackage kontrolü ==="
+          grep "renameManifestPackage" apktool.yml && echo "✓ Rename aktif" || echo "✗ UYARI: Rename bulunamadı!"
 
       - name: APK Build
         run: |
@@ -118,6 +166,10 @@ jobs:
           echo ""
           echo "=== DEX + .so compression kontrolü ==="
           unzip -v velaud-unsigned.apk | grep -E "\.dex|\.so|resources\.arsc"
+
+          echo ""
+          echo "=== Package name doğrulama (rename çalıştı mı?) ==="
+          unzip -p velaud-unsigned.apk AndroidManifest.xml | strings | grep -i "anthropic" | head -5 || true
 
       - name: Keystore oluştur
         run: |
@@ -147,6 +199,10 @@ jobs:
           echo "=== İmzalı APK ==="
           ls -lh velaud-base-signed.apk
           $BT/apksigner verify --verbose velaud-base-signed.apk
+
+          echo ""
+          echo "=== Final APK package name (aapt) ==="
+          $BT/aapt dump badging velaud-base-signed.apk | grep "package:" || true
 
       - name: Get version info
         id: version
@@ -181,15 +237,17 @@ jobs:
             - Herkes otomatik MAX planda
             - Ödeme sistemi kaldırıldı
             - ARM64 native lib'leri base.apk içine gömüldü (tek APK yeterli)
+            - Split APK gereksinimi kaldırıldı (standalone kurulum)
 
             ---
 
             ### 📥 Kurulum
 
             **Sadece `velaud-base-signed.apk` kur — başka dosya gerekmez.**
-            ARM64 native lib'leri zaten içinde, tek APK ile çalışır.
+            ARM64 native lib'leri zaten içinde, tek APK ile kurulur.
 
             > ⚠️ Ayarlar → Güvenlik → "Bilinmeyen kaynaklardan yükleme" aktif olmalı.
+            > ⚠️ Mevcut Claude uygulamasını önce kaldırmanıza gerek yok (farklı paket adı: com.anthropic.velaud).
 
           files: velaud-base-signed.apk
           draft: false
