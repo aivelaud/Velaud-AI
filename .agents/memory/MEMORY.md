@@ -1,1 +1,2 @@
 - [GitHub push bağlantısı](github-push.md) — GitHub Actions takibi için Repl’de GitHub OAuth kaynak kontrolü bağlantısı gerekiyor.
+- [Apktool binary manifest](apktool-binary-manifest.md) — `-r` kaynakları korur ama manifesti ham kopyalar; imzalama öncesi binary manifest güncellenmeli.
