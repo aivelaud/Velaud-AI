@@ -32,17 +32,17 @@
         <item>SCV45</item>
     </string-array>
     <string-array name="max_upsell_feature_list_default">
-        <item>Substantially more usage to work with Velaud without interruption</item>
+        <item>Substantially more usage to work with Claude without interruption</item>
         <item>Scale usage based on specific needs</item>
-        <item>Be among the first to try the most advanced Velaud capabilities</item>
+        <item>Be among the first to try the most advanced Claude capabilities</item>
     </string-array>
     <string-array name="onboarding_v2_subscription_free_features">
-        <item>Chat with Velaud, a helpful AI assistant</item>
+        <item>Chat with Claude, a helpful AI assistant</item>
         <item>Upload files and images for analysis</item>
         <item>Basic usage limits</item>
     </string-array>
     <string-array name="pro_upsell_feature_list_default">
-        <item>Level up your Velaud usage</item>
+        <item>Level up your Claude usage</item>
         <item>Access to our most intelligent models</item>
         <item>Priority access during high-traffic periods</item>
         <item>Early access to new features</item>

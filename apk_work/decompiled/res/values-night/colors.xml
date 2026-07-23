@@ -5,7 +5,7 @@
     <color name="bg300">#ff131313</color>
     <color name="ccr_upsell_device_body">#ff3e3e3b</color>
     <color name="ccr_upsell_device_screen">#ff2e2e2b</color>
-    <color name="velaud_widget_button_ripple">#40f5f4ef</color>
+    <color name="claude_widget_button_ripple">#40f5f4ef</color>
     <color name="glance_colorBackground">#ff1c1b1f</color>
     <color name="glance_colorError">#fff2b8b5</color>
     <color name="glance_colorErrorContainer">#ff8c1d18</color>

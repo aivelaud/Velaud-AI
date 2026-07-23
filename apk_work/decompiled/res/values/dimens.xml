@@ -48,7 +48,7 @@
     <dimen name="appcompat_dialog_background_inset">16.0dip</dimen>
     <dimen name="cardview_default_elevation">2.0dip</dimen>
     <dimen name="cardview_default_radius">2.0dip</dimen>
-    <dimen name="velaud_widget_button_radius">1000.0dip</dimen>
+    <dimen name="claude_widget_button_radius">1000.0dip</dimen>
     <dimen name="compat_button_inset_horizontal_material">4.0dip</dimen>
     <dimen name="compat_button_inset_vertical_material">6.0dip</dimen>
     <dimen name="compat_button_padding_horizontal_material">8.0dip</dimen>

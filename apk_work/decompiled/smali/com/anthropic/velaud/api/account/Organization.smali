@@ -160,16 +160,6 @@
     .end annotation
 .end field
 
-.field private final velaud_ai_bootstrap_models_config:Ljava/util/List;
-    .annotation system Ldalvik/annotation/Signature;
-        value = {
-            "Ljava/util/List<",
-            "Lcom/anthropic/velaud/api/model/ModelOption;",
-            ">;"
-        }
-    .end annotation
-.end field
-
 .field private final free_credits_status:Ljava/lang/String;
 
 .field private final name:Ljava/lang/String;
@@ -185,6 +175,16 @@
 .field private final subscription_pause:Lcom/anthropic/velaud/api/account/SubscriptionPauseHint;
 
 .field private final uuid:Ljava/lang/String;
+
+.field private final velaud_ai_bootstrap_models_config:Ljava/util/List;
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "Ljava/util/List<",
+            "Lcom/anthropic/velaud/api/model/ModelOption;",
+            ">;"
+        }
+    .end annotation
+.end field
 
 
 # direct methods
@@ -1696,22 +1696,6 @@
     return-object p0
 .end method
 
-.method public final getVelaud_ai_bootstrap_models_config()Ljava/util/List;
-    .locals 0
-    .annotation system Ldalvik/annotation/Signature;
-        value = {
-            "()",
-            "Ljava/util/List<",
-            "Lcom/anthropic/velaud/api/model/ModelOption;",
-            ">;"
-        }
-    .end annotation
-
-    iget-object p0, p0, Lcom/anthropic/velaud/api/account/Organization;->velaud_ai_bootstrap_models_config:Ljava/util/List;
-
-    return-object p0
-.end method
-
 .method public final getFree_credits_status()Ljava/lang/String;
     .locals 0
 
@@ -1737,9 +1721,9 @@
 .end method
 
 .method public final getRate_limit_upsell()Lcom/anthropic/velaud/api/account/RateLimitUpsell;
-    .locals 0
+    .locals 1
 
-    iget-object p0, p0, Lcom/anthropic/velaud/api/account/Organization;->rate_limit_upsell:Lcom/anthropic/velaud/api/account/RateLimitUpsell;
+    sget-object p0, Lcom/anthropic/velaud/api/account/RateLimitUpsell;->UNKNOWN:Lcom/anthropic/velaud/api/account/RateLimitUpsell;
 
     return-object p0
 .end method
@@ -1772,6 +1756,22 @@
     .locals 0
 
     iget-object p0, p0, Lcom/anthropic/velaud/api/account/Organization;->uuid:Ljava/lang/String;
+
+    return-object p0
+.end method
+
+.method public final getVelaud_ai_bootstrap_models_config()Ljava/util/List;
+    .locals 0
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()",
+            "Ljava/util/List<",
+            "Lcom/anthropic/velaud/api/model/ModelOption;",
+            ">;"
+        }
+    .end annotation
+
+    iget-object p0, p0, Lcom/anthropic/velaud/api/account/Organization;->velaud_ai_bootstrap_models_config:Ljava/util/List;
 
     return-object p0
 .end method

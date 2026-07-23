@@ -943,9 +943,9 @@
     <public type="color" name="call_notification_decline_color" id="0x7f060033" />
     <public type="color" name="ccr_upsell_device_body" id="0x7f060038" />
     <public type="color" name="ccr_upsell_device_screen" id="0x7f060039" />
-    <public type="color" name="velaudClay" id="0x7f06003a" />
-    <public type="color" name="velaudManilla" id="0x7f06003b" />
-    <public type="color" name="velaud_widget_button_ripple" id="0x7f06003c" />
+    <public type="color" name="claudeClay" id="0x7f06003a" />
+    <public type="color" name="claudeManilla" id="0x7f06003b" />
+    <public type="color" name="claude_widget_button_ripple" id="0x7f06003c" />
     <public type="color" name="common_google_signin_btn_text_dark" id="0x7f06003d" />
     <public type="color" name="common_google_signin_btn_text_dark_default" id="0x7f06003e" />
     <public type="color" name="common_google_signin_btn_text_dark_disabled" id="0x7f06003f" />
@@ -1402,7 +1402,7 @@
     <public type="dimen" name="appcompat_dialog_background_inset" id="0x7f070051" />
     <public type="dimen" name="cardview_default_elevation" id="0x7f070055" />
     <public type="dimen" name="cardview_default_radius" id="0x7f070056" />
-    <public type="dimen" name="velaud_widget_button_radius" id="0x7f070057" />
+    <public type="dimen" name="claude_widget_button_radius" id="0x7f070057" />
     <public type="dimen" name="compat_button_inset_horizontal_material" id="0x7f070059" />
     <public type="dimen" name="compat_button_inset_vertical_material" id="0x7f07005a" />
     <public type="dimen" name="compat_button_padding_horizontal_material" id="0x7f07005b" />
@@ -2247,7 +2247,7 @@
     <public type="drawable" name="avd_hide_password" id="0x7f0801a3" />
     <public type="drawable" name="avd_show_password" id="0x7f0801a4" />
     <public type="drawable" name="bg_ccr_code_block" id="0x7f0801a5" />
-    <public type="drawable" name="branding_velaud_splash" id="0x7f0801a6" />
+    <public type="drawable" name="branding_claude_splash" id="0x7f0801a6" />
     <public type="drawable" name="btn_checkbox_checked_mtrl" id="0x7f0801a7" />
     <public type="drawable" name="btn_checkbox_checked_to_unchecked_mtrl_animation" id="0x7f0801a8" />
     <public type="drawable" name="btn_checkbox_unchecked_mtrl" id="0x7f0801a9" />
@@ -2257,15 +2257,15 @@
     <public type="drawable" name="btn_radio_on_mtrl" id="0x7f0801ad" />
     <public type="drawable" name="btn_radio_on_to_off_mtrl_animation" id="0x7f0801ae" />
     <public type="drawable" name="ccr_upsell_phone_laptop" id="0x7f0801b0" />
-    <public type="drawable" name="velaud_logotype" id="0x7f0801b2" />
-    <public type="drawable" name="velaud_mobile_and_hand" id="0x7f0801b3" />
-    <public type="drawable" name="velaud_spark_animated_shimmer" id="0x7f0801b5" />
-    <public type="drawable" name="velaud_spark_animated_thinking" id="0x7f0801b6" />
-    <public type="drawable" name="velaud_spark_animated_writing" id="0x7f0801b7" />
-    <public type="drawable" name="velaud_spark_icon" id="0x7f0801b8" />
-    <public type="drawable" name="velaud_widget_background" id="0x7f0801d8" />
-    <public type="drawable" name="velaud_widget_button_background" id="0x7f0801d9" />
-    <public type="drawable" name="velaud_widget_button_ripple" id="0x7f0801da" />
+    <public type="drawable" name="claude_logotype" id="0x7f0801b2" />
+    <public type="drawable" name="claude_mobile_and_hand" id="0x7f0801b3" />
+    <public type="drawable" name="claude_spark_animated_shimmer" id="0x7f0801b5" />
+    <public type="drawable" name="claude_spark_animated_thinking" id="0x7f0801b6" />
+    <public type="drawable" name="claude_spark_animated_writing" id="0x7f0801b7" />
+    <public type="drawable" name="claude_spark_icon" id="0x7f0801b8" />
+    <public type="drawable" name="claude_widget_background" id="0x7f0801d8" />
+    <public type="drawable" name="claude_widget_button_background" id="0x7f0801d9" />
+    <public type="drawable" name="claude_widget_button_ripple" id="0x7f0801da" />
     <public type="drawable" name="common_google_signin_btn_icon_dark" id="0x7f0801dd" />
     <public type="drawable" name="common_google_signin_btn_icon_dark_focused" id="0x7f0801de" />
     <public type="drawable" name="common_google_signin_btn_icon_dark_normal" id="0x7f0801df" />
@@ -2336,8 +2336,8 @@
     <public type="drawable" name="icon_background" id="0x7f08023d" />
     <public type="drawable" name="kyc_quill_pictogram" id="0x7f08023e" />
     <public type="drawable" name="logo_anthropic" id="0x7f08023f" />
-    <public type="drawable" name="logo_velaud_horizontal" id="0x7f080240" />
-    <public type="drawable" name="logo_velaud_splash" id="0x7f080241" />
+    <public type="drawable" name="logo_claude_horizontal" id="0x7f080240" />
+    <public type="drawable" name="logo_claude_splash" id="0x7f080241" />
     <public type="drawable" name="logo_google_docs" id="0x7f080242" />
     <public type="drawable" name="logo_google_drive" id="0x7f080243" />
     <public type="drawable" name="m3_appbar_background" id="0x7f080244" />
@@ -2406,38 +2406,38 @@
     <public type="drawable" name="stt_education_prompt_drawing" id="0x7f0802a2" />
     <public type="drawable" name="tooltip_frame_dark" id="0x7f0802a4" />
     <public type="drawable" name="voice_consent_hero" id="0x7f0802a6" />
-    <public type="drawable" name="velaud_spark" id="0x7f0801b4" />
-    <public type="drawable" name="velaud_spark_shimmer1" id="0x7f0801b9" />
-    <public type="drawable" name="velaud_spark_shimmer10" id="0x7f0801ba" />
-    <public type="drawable" name="velaud_spark_shimmer11" id="0x7f0801bb" />
-    <public type="drawable" name="velaud_spark_shimmer12" id="0x7f0801bc" />
-    <public type="drawable" name="velaud_spark_shimmer13" id="0x7f0801bd" />
-    <public type="drawable" name="velaud_spark_shimmer14" id="0x7f0801be" />
-    <public type="drawable" name="velaud_spark_shimmer15" id="0x7f0801bf" />
-    <public type="drawable" name="velaud_spark_shimmer2" id="0x7f0801c0" />
-    <public type="drawable" name="velaud_spark_shimmer3" id="0x7f0801c1" />
-    <public type="drawable" name="velaud_spark_shimmer4" id="0x7f0801c2" />
-    <public type="drawable" name="velaud_spark_shimmer5" id="0x7f0801c3" />
-    <public type="drawable" name="velaud_spark_shimmer6" id="0x7f0801c4" />
-    <public type="drawable" name="velaud_spark_shimmer7" id="0x7f0801c5" />
-    <public type="drawable" name="velaud_spark_shimmer8" id="0x7f0801c6" />
-    <public type="drawable" name="velaud_spark_shimmer9" id="0x7f0801c7" />
-    <public type="drawable" name="velaud_spark_thinking1" id="0x7f0801c8" />
-    <public type="drawable" name="velaud_spark_thinking2" id="0x7f0801c9" />
-    <public type="drawable" name="velaud_spark_thinking3" id="0x7f0801ca" />
-    <public type="drawable" name="velaud_spark_thinking4" id="0x7f0801cb" />
-    <public type="drawable" name="velaud_spark_thinking5" id="0x7f0801cc" />
-    <public type="drawable" name="velaud_spark_thinking6" id="0x7f0801cd" />
-    <public type="drawable" name="velaud_spark_thinking7" id="0x7f0801ce" />
-    <public type="drawable" name="velaud_spark_thinking8" id="0x7f0801cf" />
-    <public type="drawable" name="velaud_spark_writing1" id="0x7f0801d0" />
-    <public type="drawable" name="velaud_spark_writing2" id="0x7f0801d1" />
-    <public type="drawable" name="velaud_spark_writing3" id="0x7f0801d2" />
-    <public type="drawable" name="velaud_spark_writing4" id="0x7f0801d3" />
-    <public type="drawable" name="velaud_spark_writing5" id="0x7f0801d4" />
-    <public type="drawable" name="velaud_spark_writing6" id="0x7f0801d5" />
-    <public type="drawable" name="velaud_spark_writing7" id="0x7f0801d6" />
-    <public type="drawable" name="velaud_spark_writing8" id="0x7f0801d7" />
+    <public type="drawable" name="claude_spark" id="0x7f0801b4" />
+    <public type="drawable" name="claude_spark_shimmer1" id="0x7f0801b9" />
+    <public type="drawable" name="claude_spark_shimmer10" id="0x7f0801ba" />
+    <public type="drawable" name="claude_spark_shimmer11" id="0x7f0801bb" />
+    <public type="drawable" name="claude_spark_shimmer12" id="0x7f0801bc" />
+    <public type="drawable" name="claude_spark_shimmer13" id="0x7f0801bd" />
+    <public type="drawable" name="claude_spark_shimmer14" id="0x7f0801be" />
+    <public type="drawable" name="claude_spark_shimmer15" id="0x7f0801bf" />
+    <public type="drawable" name="claude_spark_shimmer2" id="0x7f0801c0" />
+    <public type="drawable" name="claude_spark_shimmer3" id="0x7f0801c1" />
+    <public type="drawable" name="claude_spark_shimmer4" id="0x7f0801c2" />
+    <public type="drawable" name="claude_spark_shimmer5" id="0x7f0801c3" />
+    <public type="drawable" name="claude_spark_shimmer6" id="0x7f0801c4" />
+    <public type="drawable" name="claude_spark_shimmer7" id="0x7f0801c5" />
+    <public type="drawable" name="claude_spark_shimmer8" id="0x7f0801c6" />
+    <public type="drawable" name="claude_spark_shimmer9" id="0x7f0801c7" />
+    <public type="drawable" name="claude_spark_thinking1" id="0x7f0801c8" />
+    <public type="drawable" name="claude_spark_thinking2" id="0x7f0801c9" />
+    <public type="drawable" name="claude_spark_thinking3" id="0x7f0801ca" />
+    <public type="drawable" name="claude_spark_thinking4" id="0x7f0801cb" />
+    <public type="drawable" name="claude_spark_thinking5" id="0x7f0801cc" />
+    <public type="drawable" name="claude_spark_thinking6" id="0x7f0801cd" />
+    <public type="drawable" name="claude_spark_thinking7" id="0x7f0801ce" />
+    <public type="drawable" name="claude_spark_thinking8" id="0x7f0801cf" />
+    <public type="drawable" name="claude_spark_writing1" id="0x7f0801d0" />
+    <public type="drawable" name="claude_spark_writing2" id="0x7f0801d1" />
+    <public type="drawable" name="claude_spark_writing3" id="0x7f0801d2" />
+    <public type="drawable" name="claude_spark_writing4" id="0x7f0801d3" />
+    <public type="drawable" name="claude_spark_writing5" id="0x7f0801d4" />
+    <public type="drawable" name="claude_spark_writing6" id="0x7f0801d5" />
+    <public type="drawable" name="claude_spark_writing7" id="0x7f0801d6" />
+    <public type="drawable" name="claude_spark_writing8" id="0x7f0801d7" />
     <public type="drawable" name="fingerprint_dialog_fp_icon" id="0x7f0801fb" />
     <public type="drawable" name="cc_spinner_sprite" id="0x7f0801af" />
     <public type="drawable" name="haze_noise" id="0x7f080221" />
@@ -3874,7 +3874,7 @@
     <public type="layout" name="box_start_top_7children" id="0x7f0d00e0" />
     <public type="layout" name="box_start_top_8children" id="0x7f0d00e1" />
     <public type="layout" name="box_start_top_9children" id="0x7f0d00e2" />
-    <public type="layout" name="velaud_appwidget_initial_layout" id="0x7f0d00e6" />
+    <public type="layout" name="claude_appwidget_initial_layout" id="0x7f0d00e6" />
     <public type="layout" name="column_center_horizontal_null_0children" id="0x7f0d00e9" />
     <public type="layout" name="column_center_horizontal_null_10children" id="0x7f0d00ea" />
     <public type="layout" name="column_center_horizontal_null_1children" id="0x7f0d00eb" />
@@ -5126,7 +5126,7 @@
     <public type="string" name="artifacts_empty_state" id="0x7f1200a8" />
     <public type="string" name="artifacts_required_disabled_reason" id="0x7f1200a9" />
     <public type="string" name="artifacts_wiggle_enabled_disabled_reason" id="0x7f1200aa" />
-    <public type="string" name="ask_velaud" id="0x7f1200ab" />
+    <public type="string" name="ask_claude" id="0x7f1200ab" />
     <public type="string" name="ask_user_input_answer_prefix" id="0x7f1200ac" />
     <public type="string" name="ask_user_input_custom_answer" id="0x7f1200ad" />
     <public type="string" name="ask_user_input_dismiss" id="0x7f1200ae" />
@@ -5172,7 +5172,7 @@
     <public type="string" name="break_suggestion_snooze" id="0x7f1200db" />
     <public type="string" name="browser_takeover_complete_next_step" id="0x7f1200dc" />
     <public type="string" name="browser_takeover_dismiss" id="0x7f1200dd" />
-    <public type="string" name="browser_takeover_done_message_for_velaud" id="0x7f1200de" />
+    <public type="string" name="browser_takeover_done_message_for_claude" id="0x7f1200de" />
     <public type="string" name="browser_takeover_hide_keyboard" id="0x7f1200df" />
     <public type="string" name="browser_takeover_show_keyboard" id="0x7f1200e0" />
     <public type="string" name="browser_takeover_user_instructions" id="0x7f1200e1" />
@@ -5961,24 +5961,24 @@
     <public type="string" name="classic_memory_flip_back_confirm" id="0x7f12042f" />
     <public type="string" name="classic_memory_flip_back_message" id="0x7f120430" />
     <public type="string" name="classic_memory_flip_back_title" id="0x7f120431" />
-    <public type="string" name="velaud_appwidget_description" id="0x7f120432" />
-    <public type="string" name="velaud_logo_content_description" id="0x7f120433" />
-    <public type="string" name="velaud_spark_content_description" id="0x7f120434" />
-    <public type="string" name="velaud_spark_content_description_thinking" id="0x7f120435" />
-    <public type="string" name="velaud_spark_content_description_writing" id="0x7f120436" />
-    <public type="string" name="velaud_widget_button_artifacts" id="0x7f120437" />
-    <public type="string" name="velaud_widget_button_camera" id="0x7f120438" />
-    <public type="string" name="velaud_widget_button_chats" id="0x7f120439" />
-    <public type="string" name="velaud_widget_button_code" id="0x7f12043a" />
-    <public type="string" name="velaud_widget_button_dictation" id="0x7f12043b" />
-    <public type="string" name="velaud_widget_button_dispatch" id="0x7f12043c" />
-    <public type="string" name="velaud_widget_button_photo_library" id="0x7f12043d" />
-    <public type="string" name="velaud_widget_button_projects" id="0x7f12043e" />
-    <public type="string" name="velaud_widget_button_voice" id="0x7f12043f" />
-    <public type="string" name="velaud_widget_chat_button" id="0x7f120440" />
-    <public type="string" name="velaud_widget_chat_button_medium" id="0x7f120441" />
-    <public type="string" name="velaud_widget_config_slot" id="0x7f120442" />
-    <public type="string" name="velaud_widget_config_title" id="0x7f120443" />
+    <public type="string" name="claude_appwidget_description" id="0x7f120432" />
+    <public type="string" name="claude_logo_content_description" id="0x7f120433" />
+    <public type="string" name="claude_spark_content_description" id="0x7f120434" />
+    <public type="string" name="claude_spark_content_description_thinking" id="0x7f120435" />
+    <public type="string" name="claude_spark_content_description_writing" id="0x7f120436" />
+    <public type="string" name="claude_widget_button_artifacts" id="0x7f120437" />
+    <public type="string" name="claude_widget_button_camera" id="0x7f120438" />
+    <public type="string" name="claude_widget_button_chats" id="0x7f120439" />
+    <public type="string" name="claude_widget_button_code" id="0x7f12043a" />
+    <public type="string" name="claude_widget_button_dictation" id="0x7f12043b" />
+    <public type="string" name="claude_widget_button_dispatch" id="0x7f12043c" />
+    <public type="string" name="claude_widget_button_photo_library" id="0x7f12043d" />
+    <public type="string" name="claude_widget_button_projects" id="0x7f12043e" />
+    <public type="string" name="claude_widget_button_voice" id="0x7f12043f" />
+    <public type="string" name="claude_widget_chat_button" id="0x7f120440" />
+    <public type="string" name="claude_widget_chat_button_medium" id="0x7f120441" />
+    <public type="string" name="claude_widget_config_slot" id="0x7f120442" />
+    <public type="string" name="claude_widget_config_title" id="0x7f120443" />
     <public type="string" name="clawd_laptop_content_description" id="0x7f120444" />
     <public type="string" name="clawd_soccer_content_description" id="0x7f120445" />
     <public type="string" name="close_drawer" id="0x7f120447" />
@@ -6045,7 +6045,7 @@
     <public type="string" name="completion_notification_upsell_description" id="0x7f120499" />
     <public type="string" name="completion_notification_upsell_title" id="0x7f12049a" />
     <public type="string" name="confirm_device_credential_password" id="0x7f12049b" />
-    <public type="string" name="connect_your_account_on_velaud_ai" id="0x7f12049c" />
+    <public type="string" name="connect_your_account_on_claude_ai" id="0x7f12049c" />
     <public type="string" name="connected_apps_card_collapse" id="0x7f12049d" />
     <public type="string" name="connected_apps_card_expand" id="0x7f12049e" />
     <public type="string" name="connected_apps_disclaimer_title" id="0x7f1204a0" />
@@ -6132,7 +6132,7 @@
     <public type="string" name="cowork_empty_all_tasks_archived_title" id="0x7f1204f2" />
     <public type="string" name="cowork_empty_no_tasks_found_title" id="0x7f1204f3" />
     <public type="string" name="cowork_empty_no_tasks_subtitle" id="0x7f1204f4" />
-    <public type="string" name="cowork_empty_what_can_velaud_tackle_title" id="0x7f1204f5" />
+    <public type="string" name="cowork_empty_what_can_claude_tackle_title" id="0x7f1204f5" />
     <public type="string" name="cowork_scheduled_empty_subtitle" id="0x7f1204f6" />
     <public type="string" name="cowork_scheduled_empty_title" id="0x7f1204f7" />
     <public type="string" name="cowork_starter_benefit_check_in_anywhere" id="0x7f1204f8" />
@@ -6974,7 +6974,7 @@
     <public type="string" name="quiet_hours_adjust" id="0x7f12090b" />
     <public type="string" name="quiet_hours_body" id="0x7f12090c" />
     <public type="string" name="quiet_hours_headline" id="0x7f12090d" />
-    <public type="string" name="quiet_hours_open_velaud" id="0x7f12090e" />
+    <public type="string" name="quiet_hours_open_claude" id="0x7f12090e" />
     <public type="string" name="rate_limit_approaching" id="0x7f120911" />
     <public type="string" name="rate_limit_model_reached" id="0x7f120912" />
     <public type="string" name="rate_limit_notice_out_of_messages" id="0x7f120913" />
@@ -7174,7 +7174,7 @@
     <public type="string" name="settings_title_choose_pace" id="0x7f1209f2" />
     <public type="string" name="settings_title_choose_voice" id="0x7f1209f3" />
     <public type="string" name="settings_title_developer" id="0x7f1209f4" />
-    <public type="string" name="settings_title_help_improve_velaud" id="0x7f1209f5" />
+    <public type="string" name="settings_title_help_improve_claude" id="0x7f1209f5" />
     <public type="string" name="settings_title_language" id="0x7f1209f6" />
     <public type="string" name="settings_title_model" id="0x7f1209f7" />
     <public type="string" name="settings_tool_access" id="0x7f1209f8" />
@@ -7948,9 +7948,9 @@
     <public type="style" name="TextAppearance.Widget.AppCompat.Toolbar.Title" id="0x7f13022c" />
     <public type="style" name="Theme.AppCompat.CompactMenu" id="0x7f13022e" />
     <public type="style" name="Theme.AppCompat.Light" id="0x7f13023b" />
-    <public type="style" name="Theme.Velaud" id="0x7f130243" />
-    <public type="style" name="Theme.Velaud.Overlay" id="0x7f130244" />
-    <public type="style" name="Theme.Velaud.Splash" id="0x7f130245" />
+    <public type="style" name="Theme.Claude" id="0x7f130243" />
+    <public type="style" name="Theme.Claude.Overlay" id="0x7f130244" />
+    <public type="style" name="Theme.Claude.Splash" id="0x7f130245" />
     <public type="style" name="Theme.Hidden" id="0x7f13024c" />
     <public type="style" name="Theme.Material3.Light" id="0x7f130260" />
     <public type="style" name="Theme.Material3.Light.NoActionBar" id="0x7f130266" />
@@ -8313,7 +8313,7 @@
     <public type="style" name="Glance.AppWidget.TextAppearance.DeviceDefaultFontFamily" id="0x7f130140" />
     <public type="xml" name="app_restrictions" id="0x7f150000" />
     <public type="xml" name="backup_rules" id="0x7f150001" />
-    <public type="xml" name="velaud_appwidget_info" id="0x7f150002" />
+    <public type="xml" name="claude_appwidget_info" id="0x7f150002" />
     <public type="xml" name="data_extraction_rules" id="0x7f150004" />
     <public type="xml" name="file_provider_paths" id="0x7f150005" />
     <public type="xml" name="ga_ad_services_config" id="0x7f150006" />

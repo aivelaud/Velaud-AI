@@ -16,11 +16,11 @@
 
 .field public static final f:Ljava/lang/Object;
 
-.field public static g:Z = false
+.field public static g:Z
 
-.field public static h:Ljava/lang/reflect/Method; = null
+.field public static h:Ljava/lang/reflect/Method;
 
-.field public static i:Z = false
+.field public static i:Z
 
 .field public static j:Ljava/lang/reflect/Field;
 

@@ -11,14 +11,14 @@
         <item name="android:textFontWeight">500</item>
     </style>
     <style name="Glance.AppWidget.Theme" parent="@android:style/Theme.DeviceDefault.DayNight" />
-    <style name="Theme.Velaud" parent="@android:style/Theme.Material.Light.NoActionBar">
+    <style name="Theme.Claude" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/bg100</item>
         <item name="android:isLightTheme">true</item>
     </style>
-    <style name="Theme.Velaud.Splash" parent="@style/Theme.SplashScreen">
+    <style name="Theme.Claude.Splash" parent="@style/Theme.SplashScreen">
         <item name="android:isLightTheme">true</item>
-        <item name="postSplashScreenTheme">@style/Theme.Velaud</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/logo_velaud_splash</item>
+        <item name="postSplashScreenTheme">@style/Theme.Claude</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/logo_claude_splash</item>
         <item name="windowSplashScreenBackground">@color/bg100</item>
     </style>
     <style name="Glance.AppWidget.TextAppearance.DeviceDefaultFontFamily" parent="@android:style/TextAppearance.DeviceDefault">

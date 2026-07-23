@@ -71,9 +71,9 @@
 
 
 # instance fields
-.field private final velaudai_supported:Z
-
 .field private final phone_verification_supported:Z
+
+.field private final velaudai_supported:Z
 
 
 # direct methods
@@ -319,18 +319,18 @@
     return v0
 .end method
 
-.method public final getVelaudai_supported()Z
-    .locals 0
-
-    iget-boolean p0, p0, Lcom/anthropic/velaud/models/organization/configtypes/RegionSupport;->velaudai_supported:Z
-
-    return p0
-.end method
-
 .method public final getPhone_verification_supported()Z
     .locals 0
 
     iget-boolean p0, p0, Lcom/anthropic/velaud/models/organization/configtypes/RegionSupport;->phone_verification_supported:Z
+
+    return p0
+.end method
+
+.method public final getVelaudai_supported()Z
+    .locals 0
+
+    iget-boolean p0, p0, Lcom/anthropic/velaud/models/organization/configtypes/RegionSupport;->velaudai_supported:Z
 
     return p0
 .end method

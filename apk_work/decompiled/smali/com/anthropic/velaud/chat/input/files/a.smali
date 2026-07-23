@@ -2979,13 +2979,11 @@
 
     if-eqz v17, :cond_14
 
-    # PATCHED: 10GB limit
     const-wide v17, 0x280000000L
 
     goto :goto_e
 
     :cond_14
-    # PATCHED: 10GB limit
     const-wide v17, 0x280000000L
 
     :goto_e

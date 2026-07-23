@@ -3,14 +3,14 @@
     <style name="Base.Theme.SplashScreen.DayNight" parent="@style/Base.Theme.SplashScreen">
         <item name="isLightTheme">false</item>
     </style>
-    <style name="Theme.Velaud" parent="@android:style/Theme.Material.Light.NoActionBar">
+    <style name="Theme.Claude" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/bg100</item>
         <item name="isLightTheme">false</item>
     </style>
-    <style name="Theme.Velaud.Splash" parent="@style/Theme.SplashScreen">
+    <style name="Theme.Claude.Splash" parent="@style/Theme.SplashScreen">
         <item name="isLightTheme">false</item>
-        <item name="postSplashScreenTheme">@style/Theme.Velaud</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/logo_velaud_splash</item>
+        <item name="postSplashScreenTheme">@style/Theme.Claude</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/logo_claude_splash</item>
         <item name="windowSplashScreenBackground">@color/bg100</item>
     </style>
 </resources>

@@ -72,10 +72,6 @@
 
 .field public static final enum CHAT:Lcom/anthropic/velaud/api/feature/Feature;
 
-.field public static final enum VELAUD_CODE_AUTO_PERMISSIONS:Lcom/anthropic/velaud/api/feature/Feature;
-
-.field public static final enum VELAUD_CODE_WEB:Lcom/anthropic/velaud/api/feature/Feature;
-
 .field public static final enum CONVERSATION_PREFERENCES:Lcom/anthropic/velaud/api/feature/Feature;
 
 .field public static final enum CONVERSATION_SEARCH:Lcom/anthropic/velaud/api/feature/Feature;
@@ -93,6 +89,10 @@
 .field public static final enum THIRD_PARTY_ANALYTICS:Lcom/anthropic/velaud/api/feature/Feature;
 
 .field public static final enum UNKNOWN:Lcom/anthropic/velaud/api/feature/Feature;
+
+.field public static final enum VELAUD_CODE_AUTO_PERMISSIONS:Lcom/anthropic/velaud/api/feature/Feature;
+
+.field public static final enum VELAUD_CODE_WEB:Lcom/anthropic/velaud/api/feature/Feature;
 
 .field public static final enum WEB_SEARCH:Lcom/anthropic/velaud/api/feature/Feature;
 

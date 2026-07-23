@@ -47,13 +47,13 @@
 # static fields
 .field private static final CHAT:Ljava/lang/String;
 
-.field private static final VELAUD_MAX:Ljava/lang/String;
-
-.field private static final VELAUD_PRO:Ljava/lang/String;
-
 .field public static final Companion:Llj2;
 
 .field private static final RAVEN:Ljava/lang/String;
+
+.field private static final VELAUD_MAX:Ljava/lang/String;
+
+.field private static final VELAUD_PRO:Ljava/lang/String;
 
 
 # instance fields
@@ -123,6 +123,14 @@
     return-object v0
 .end method
 
+.method public static final synthetic access$getRAVEN$cp()Ljava/lang/String;
+    .locals 1
+
+    sget-object v0, Lcom/anthropic/velaud/types/strings/Capability;->RAVEN:Ljava/lang/String;
+
+    return-object v0
+.end method
+
 .method public static final synthetic access$getVELAUD_MAX$cp()Ljava/lang/String;
     .locals 1
 
@@ -135,14 +143,6 @@
     .locals 1
 
     sget-object v0, Lcom/anthropic/velaud/types/strings/Capability;->VELAUD_PRO:Ljava/lang/String;
-
-    return-object v0
-.end method
-
-.method public static final synthetic access$getRAVEN$cp()Ljava/lang/String;
-    .locals 1
-
-    sget-object v0, Lcom/anthropic/velaud/types/strings/Capability;->RAVEN:Ljava/lang/String;
 
     return-object v0
 .end method

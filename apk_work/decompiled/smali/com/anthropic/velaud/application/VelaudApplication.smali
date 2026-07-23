@@ -64,6 +64,12 @@
 .method public final onCreate()V
     .locals 14
 
+    new-instance v0, Lcom/anthropic/velaud/crash/CrashHandler;
+
+    invoke-direct {v0, p0}, Lcom/anthropic/velaud/crash/CrashHandler;-><init>(Landroid/content/Context;)V
+
+    invoke-static {v0}, Ljava/lang/Thread;->setDefaultUncaughtExceptionHandler(Ljava/lang/Thread$UncaughtExceptionHandler;)V
+
     invoke-super {p0}, Landroid/app/Application;->onCreate()V
 
     sget-object v0, Lmta;->a:Llta;

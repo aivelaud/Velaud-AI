@@ -1486,7 +1486,7 @@
 
     check-cast v4, Lcom/anthropic/velaud/api/common/RateLimit;
 
-    const/4 v4, 0x0  # PATCHED: always not exceeded
+    const/4 v4, 0x0
 
     if-eqz v4, :cond_2d
 

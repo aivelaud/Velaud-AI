@@ -138,8 +138,6 @@
 # instance fields
 .field private final api_refusal_category:Ljava/lang/String;
 
-.field private final velaud_code_version:Ljava/lang/String;
-
 .field private final created_at:Ljava/lang/String;
 
 .field private final description:Ljava/lang/String;
@@ -195,6 +193,8 @@
 .field private final usage:Lcom/anthropic/velaud/sessions/types/SdkTaskUsage;
 
 .field private final uuid:Ljava/lang/String;
+
+.field private final velaud_code_version:Ljava/lang/String;
 
 .field private final workflow_name:Ljava/lang/String;
 
@@ -1999,14 +1999,6 @@
     return-object p0
 .end method
 
-.method public final getVelaud_code_version()Ljava/lang/String;
-    .locals 0
-
-    iget-object p0, p0, Lcom/anthropic/velaud/sessions/types/SdkSystemEvent;->velaud_code_version:Ljava/lang/String;
-
-    return-object p0
-.end method
-
 .method public final getCreated_at()Ljava/lang/String;
     .locals 0
 
@@ -2203,6 +2195,14 @@
     .locals 0
 
     iget-object p0, p0, Lcom/anthropic/velaud/sessions/types/SdkSystemEvent;->uuid:Ljava/lang/String;
+
+    return-object p0
+.end method
+
+.method public final getVelaud_code_version()Ljava/lang/String;
+    .locals 0
+
+    iget-object p0, p0, Lcom/anthropic/velaud/sessions/types/SdkSystemEvent;->velaud_code_version:Ljava/lang/String;
 
     return-object p0
 .end method

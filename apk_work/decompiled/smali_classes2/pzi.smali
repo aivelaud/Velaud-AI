@@ -4,15 +4,15 @@
 
 
 # static fields
-.field public static q:Ljava/lang/Class; = null
+.field public static q:Ljava/lang/Class;
 
-.field public static r:Ljava/lang/reflect/Constructor; = null
+.field public static r:Ljava/lang/reflect/Constructor;
 
-.field public static s:Ljava/lang/reflect/Method; = null
+.field public static s:Ljava/lang/reflect/Method;
 
-.field public static t:Ljava/lang/reflect/Method; = null
+.field public static t:Ljava/lang/reflect/Method;
 
-.field public static u:Z = false
+.field public static u:Z
 
 
 # instance fields

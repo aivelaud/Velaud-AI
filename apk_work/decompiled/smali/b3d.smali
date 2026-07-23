@@ -512,8 +512,9 @@
 
 .method public static i(Lcom/anthropic/velaud/api/common/RateLimit;)Z
     .locals 1
-    # PATCHED: always false (never limited)
+
     const/4 v0, 0x0
+
     return v0
 .end method
 
@@ -521,11 +522,15 @@
 # virtual methods
 .method public final b(Ljava/lang/String;)Lcom/anthropic/velaud/api/common/RateLimit;
     .locals 3
-    # PATCHED: always return WithinLimit
+
     const/4 v0, 0x0
+
     const/4 v1, 0x1
+
     new-instance p0, Lcom/anthropic/velaud/api/common/RateLimit$WithinLimit;
+
     invoke-direct {p0, v0, v1, v0}, Lcom/anthropic/velaud/api/common/RateLimit$WithinLimit;-><init>(Lcom/anthropic/velaud/api/notice/Notice;ILry5;)V
+
     return-object p0
 .end method
 

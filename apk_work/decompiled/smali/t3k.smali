@@ -4,7 +4,7 @@
 
 
 # static fields
-.field public static n:Z = false
+.field public static n:Z
 
 .field public static o:Ljava/lang/reflect/Method;
 

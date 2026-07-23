@@ -94,15 +94,6 @@
 
 
 # instance fields
-.field private final velaud_completion_error:Lanthropic/velaud/usercontent/sandbox/VelaudCompletionError;
-    .annotation runtime Lcom/squareup/wire/WireField;
-        adapter = "anthropic.velaud.usercontent.sandbox.VelaudCompletionError#ADAPTER"
-        oneofName = "error"
-        schemaIndex = 0x3
-        tag = 0x4
-    .end annotation
-.end field
-
 .field private final file_not_found:Lanthropic/velaud/usercontent/sandbox/FileNotFoundError;
     .annotation runtime Lcom/squareup/wire/WireField;
         adapter = "anthropic.velaud.usercontent.sandbox.FileNotFoundError#ADAPTER"
@@ -127,6 +118,15 @@
         oneofName = "error"
         schemaIndex = 0x0
         tag = 0x1
+    .end annotation
+.end field
+
+.field private final velaud_completion_error:Lanthropic/velaud/usercontent/sandbox/VelaudCompletionError;
+    .annotation runtime Lcom/squareup/wire/WireField;
+        adapter = "anthropic.velaud.usercontent.sandbox.VelaudCompletionError#ADAPTER"
+        oneofName = "error"
+        schemaIndex = 0x3
+        tag = 0x4
     .end annotation
 .end field
 
@@ -443,14 +443,6 @@
     return v0
 .end method
 
-.method public final getVelaud_completion_error()Lanthropic/velaud/usercontent/sandbox/VelaudCompletionError;
-    .locals 0
-
-    iget-object p0, p0, Lanthropic/velaud/usercontent/sandbox/SandboxError;->velaud_completion_error:Lanthropic/velaud/usercontent/sandbox/VelaudCompletionError;
-
-    return-object p0
-.end method
-
 .method public final getFile_not_found()Lanthropic/velaud/usercontent/sandbox/FileNotFoundError;
     .locals 0
 
@@ -471,6 +463,14 @@
     .locals 0
 
     iget-object p0, p0, Lanthropic/velaud/usercontent/sandbox/SandboxError;->unsupported_imports:Lanthropic/velaud/usercontent/sandbox/UnsupportedImportsError;
+
+    return-object p0
+.end method
+
+.method public final getVelaud_completion_error()Lanthropic/velaud/usercontent/sandbox/VelaudCompletionError;
+    .locals 0
+
+    iget-object p0, p0, Lanthropic/velaud/usercontent/sandbox/SandboxError;->velaud_completion_error:Lanthropic/velaud/usercontent/sandbox/VelaudCompletionError;
 
     return-object p0
 .end method
