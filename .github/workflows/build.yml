@@ -29,33 +29,106 @@ jobs:
           chmod +x /usr/local/bin/apktool
           apktool --version
 
-      - name: Build APK (base + gömülü arm64 native libs)
-        working-directory: apk_work/decompiled
+      - name: Orijinal APK çıkar + Decompile (kaynaklar binary korunuyor)
         run: |
-          echo "=== lib/arm64-v8a içeriği ==="
-          ls -lh lib/arm64-v8a/ 2>/dev/null || echo "lib/ yok"
-          echo ""
-          echo "=== APK build ediliyor ==="
-          apktool b . -o ../../velaud-unsigned.apk
-          echo ""
-          ls -lh ../../velaud-unsigned.apk
-          echo ""
-          echo "=== .so dosyaları compression kontrolü ==="
-          unzip -v ../../velaud-unsigned.apk | grep "\.so"
+          echo "=== Orijinal APK çıkarılıyor ==="
+          unzip -o apk_work/base.apk.zip -d orig_dir/
+          ls -lh orig_dir/base.apk
 
-      - name: Generate Debug Keystore
+          echo ""
+          echo "=== APK decompile ediliyor (-r: resources.arsc değişmez) ==="
+          # -r flag: kaynakları BINARY olarak koru, sadece smali decode et
+          # Bu sayede resources.arsc orijinal kalır → resource ID uyumsuzluğu olmaz
+          apktool d -r -f orig_dir/base.apk -o work/
+
+          echo ""
+          echo "=== work/ içeriği ==="
+          ls work/
+          echo "Smali dosya sayısı: $(find work/smali* -name '*.smali' 2>/dev/null | wc -l)"
+
+      - name: Smali patchlerini uygula
+        run: |
+          echo "=== Patch dosyaları uygulanıyor ==="
+
+          # Rate limit bypass (b3d)
+          cp apk_work/decompiled/smali/b3d.smali work/smali/ \
+            && echo "✓ b3d.smali" || echo "✗ b3d.smali bulunamadı"
+
+          # ExceedsLimit bypass (ig3)
+          cp apk_work/decompiled/smali/ig3.smali work/smali/ \
+            && echo "✓ ig3.smali" || echo "✗ ig3.smali bulunamadı"
+
+          # BellConfig
+          cp apk_work/decompiled/smali/BellConfig.smali work/smali/ \
+            && echo "✓ BellConfig.smali" || echo "✗ BellConfig.smali bulunamadı"
+
+          # Organization - rate_limit_tier = 'max'
+          mkdir -p work/smali/com/anthropic/velaud/api/account/
+          cp apk_work/decompiled/smali/com/anthropic/velaud/api/account/Organization.smali \
+             work/smali/com/anthropic/velaud/api/account/ \
+            && echo "✓ Organization.smali" || echo "✗ Organization.smali bulunamadı"
+
+          # File upload limit 10GB
+          mkdir -p "work/smali/com/anthropic/velaud/chat/input/files/"
+          cp "apk_work/decompiled/smali/com/anthropic/velaud/chat/input/files/a.smali" \
+             "work/smali/com/anthropic/velaud/chat/input/files/" \
+            && echo "✓ files/a.smali" || echo "✗ files/a.smali bulunamadı"
+
+      - name: ARM64 native lib ekle
+        run: |
+          echo "=== ARM64 native lib'leri ekleniyor ==="
+          mkdir -p work/lib/arm64-v8a/
+          cp apk_work/decompiled/lib/arm64-v8a/*.so work/lib/arm64-v8a/
+          ls -lh work/lib/arm64-v8a/
+
+      - name: apktool.yml güncelle (package rename + doNotCompress)
+        working-directory: work
+        run: |
+          echo "=== Mevcut apktool.yml ==="
+          cat apktool.yml
+
+          # Package rename ekle (yoksa)
+          if ! grep -q "renameManifestPackage" apktool.yml; then
+            sed -i 's/forcedPackageId: 127/forcedPackageId: 127\n  renameManifestPackage: com.anthropic.velaud/' apktool.yml
+            echo "→ renameManifestPackage eklendi"
+          fi
+
+          # doNotCompress ekle/güncelle
+          if ! grep -q "^doNotCompress:" apktool.yml; then
+            printf '\ndoNotCompress:\n- dex\n- so\n- resources.arsc\n' >> apktool.yml
+            echo "→ doNotCompress listesi eklendi"
+          else
+            grep -q "^\- dex" apktool.yml || sed -i '/^doNotCompress:/a - dex' apktool.yml
+            grep -q "^\- so"  apktool.yml || sed -i '/^doNotCompress:/a - so'  apktool.yml
+            echo "→ doNotCompress güncellendi"
+          fi
+
+          echo ""
+          echo "=== Güncellenmiş apktool.yml ==="
+          cat apktool.yml
+
+      - name: APK Build
+        run: |
+          echo "=== APK build ediliyor ==="
+          apktool b work/ -o velaud-unsigned.apk
+
+          echo ""
+          ls -lh velaud-unsigned.apk
+
+          echo ""
+          echo "=== DEX + .so compression kontrolü ==="
+          unzip -v velaud-unsigned.apk | grep -E "\.dex|\.so|resources\.arsc"
+
+      - name: Keystore oluştur
         run: |
           keytool -genkey -v \
-            -keystore velaud-debug.keystore \
+            -keystore velaud.keystore \
             -alias velaud \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -storepass velaud123 \
-            -keypass velaud123 \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass velaud123 -keypass velaud123 \
             -dname "CN=Velaud AI, OU=Dev, O=Velaud, L=Istanbul, ST=Istanbul, C=TR"
 
-      - name: Zipalign ve Sign — base APK
+      - name: Zipalign ve Sign
         run: |
           BT=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
           echo "Build tools: $BT"
@@ -63,59 +136,30 @@ jobs:
           $BT/zipalign -v 4 velaud-unsigned.apk velaud-aligned.apk
 
           $BT/apksigner sign \
-            --ks velaud-debug.keystore \
+            --ks velaud.keystore \
             --ks-key-alias velaud \
             --ks-pass pass:velaud123 \
             --key-pass pass:velaud123 \
             --out velaud-base-signed.apk \
             velaud-aligned.apk
 
+          echo ""
           echo "=== İmzalı APK ==="
           ls -lh velaud-base-signed.apk
           $BT/apksigner verify --verbose velaud-base-signed.apk
 
-      - name: Re-sign arm64 split APK
-        run: |
-          BT=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
-          SPLIT=apk_work/decompiled/splits/split_config.arm64_v8a.apk
-          if [ -f "$SPLIT" ]; then
-            echo "=== arm64 split re-sign ==="
-            $BT/zipalign -v 4 "$SPLIT" arm64-aligned.apk
-            $BT/apksigner sign \
-              --ks velaud-debug.keystore \
-              --ks-key-alias velaud \
-              --ks-pass pass:velaud123 \
-              --key-pass pass:velaud123 \
-              --out velaud-arm64-split-signed.apk \
-              arm64-aligned.apk
-            ls -lh velaud-arm64-split-signed.apk
-          else
-            echo "arm64 split bulunamadı, atlandı (native libs zaten base.apk içinde)"
-          fi
-
       - name: Get version info
         id: version
-        working-directory: apk_work/decompiled
         run: |
-          VERSION=$(grep "versionName:" apktool.yml | awk '{print $2}')
-          BUILD=$(grep "versionCode:" apktool.yml | awk '{print $2}')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "build=$BUILD" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION | Code: $BUILD | Run: ${{ github.run_number }}"
+          VERSION=$(grep "versionName:" apk_work/decompiled/apktool.yml | awk '{print $2}')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION} | Run: ${{ github.run_number }}"
 
-      - name: Upload base APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: Velaud-AI-base-v${{ steps.version.outputs.version }}-run${{ github.run_number }}
           path: velaud-base-signed.apk
-          retention-days: 30
-
-      - name: Upload arm64 split APK
-        if: hashFiles('velaud-arm64-split-signed.apk') != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: Velaud-AI-arm64split-v${{ steps.version.outputs.version }}-run${{ github.run_number }}
-          path: velaud-arm64-split-signed.apk
           retention-days: 30
 
       - name: Create GitHub Release
@@ -147,9 +191,7 @@ jobs:
 
             > ⚠️ Ayarlar → Güvenlik → "Bilinmeyen kaynaklardan yükleme" aktif olmalı.
 
-          files: |
-            velaud-base-signed.apk
-            velaud-arm64-split-signed.apk
+          files: velaud-base-signed.apk
           draft: false
           prerelease: false
           fail_on_unmatched_files: false
