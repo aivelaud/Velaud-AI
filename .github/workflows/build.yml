@@ -33,7 +33,7 @@ jobs:
           ls -lh lib/arm64-v8a/ 2>/dev/null || echo "lib/ yok"
           echo ""
           echo "=== APK build ediliyor ==="
-          apktool b . -o ../../velaud-unsigned.apk --use-aapt2
+          apktool b . -o ../../velaud-unsigned.apk
           echo ""
           ls -lh ../../velaud-unsigned.apk
 
