@@ -5,6 +5,9 @@ on:
     branches: [ main, clean-main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -36,6 +39,9 @@ jobs:
           apktool b . -o ../../velaud-unsigned.apk
           echo ""
           ls -lh ../../velaud-unsigned.apk
+          echo ""
+          echo "=== .so dosyaları compression kontrolü ==="
+          unzip -v ../../velaud-unsigned.apk | grep "\.so"
 
       - name: Generate Debug Keystore
         run: |
@@ -84,7 +90,7 @@ jobs:
               arm64-aligned.apk
             ls -lh velaud-arm64-split-signed.apk
           else
-            echo "arm64 split bulunamadı, atlandı"
+            echo "arm64 split bulunamadı, atlandı (native libs zaten base.apk içinde)"
           fi
 
       - name: Get version info
