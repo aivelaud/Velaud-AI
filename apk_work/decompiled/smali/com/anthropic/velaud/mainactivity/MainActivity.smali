@@ -265,9 +265,6 @@
 
     invoke-super {p0, p1}, Ld78;->onCreate(Landroid/os/Bundle;)V
 
-    # ── Velaud Log Görücü bildirimi ──
-    invoke-static {p0}, Lcom/anthropic/velaud/velaudlog/VelaudLogHelper;->a(Landroid/content/Context;)V
-
     invoke-static {p0}, Lrck;->A(Landroid/content/ComponentCallbacks;)Ljyf;
 
     move-result-object v6
