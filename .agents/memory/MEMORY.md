@@ -1,0 +1,1 @@
+- [GitHub push bağlantısı](github-push.md) — GitHub Actions takibi için Repl’de GitHub OAuth kaynak kontrolü bağlantısı gerekiyor.
