@@ -23,17 +23,19 @@ jobs:
 
       - name: Download Apktool
         run: |
-          wget -q https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -O apktool.jar
-          wget -q https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool -O apktool
-          chmod +x apktool
-          sudo mv apktool /usr/local/bin/apktool
-          sudo mv apktool.jar /usr/local/bin/apktool.jar
+          wget -q https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -O /usr/local/bin/apktool.jar
+          wget -q https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool -O /usr/local/bin/apktool
+          chmod +x /usr/local/bin/apktool
           apktool --version
 
-      - name: Build APK with Apktool
+      - name: Build APK (base + embedded arm64 libs)
         run: |
+          echo "=== Mevcut lib dizini ==="
+          ls -lh lib/arm64-v8a/ || echo "lib/ dizini yok"
+          echo "=== APK build ediliyor ==="
           apktool b . -o velaud-unsigned.apk --use-aapt2
-          echo "Build tamamlandı: $(ls -lh velaud-unsigned.apk)"
+          echo "=== Build tamamlandı ==="
+          ls -lh velaud-unsigned.apk
 
       - name: Generate Debug Keystore
         run: |
@@ -47,28 +49,48 @@ jobs:
             -keypass velaud123 \
             -dname "CN=Velaud AI, OU=Dev, O=Velaud, L=Istanbul, ST=Istanbul, C=TR"
 
-      - name: Align APK
+      - name: Align & Sign base APK
         run: |
-          $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)/zipalign \
-            -v 4 velaud-unsigned.apk velaud-aligned.apk
-          echo "Zipalign tamamlandı"
+          BUILD_TOOLS=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
+          echo "Build tools: $BUILD_TOOLS"
 
-      - name: Sign APK
-        run: |
-          $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)/apksigner \
-            sign \
+          $BUILD_TOOLS/zipalign -v 4 velaud-unsigned.apk velaud-aligned.apk
+
+          $BUILD_TOOLS/apksigner sign \
             --ks velaud-debug.keystore \
             --ks-key-alias velaud \
             --ks-pass pass:velaud123 \
             --key-pass pass:velaud123 \
-            --out velaud-signed.apk \
+            --out velaud-base-signed.apk \
             velaud-aligned.apk
-          echo "İmzalama tamamlandı: $(ls -lh velaud-signed.apk)"
 
-      - name: Verify APK
+          echo "=== base APK imzalandı ==="
+          ls -lh velaud-base-signed.apk
+          $BUILD_TOOLS/apksigner verify --verbose velaud-base-signed.apk
+
+      - name: Re-sign arm64 split APK
         run: |
-          $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)/apksigner \
-            verify --verbose velaud-signed.apk
+          BUILD_TOOLS=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
+
+          if [ -f "splits/split_config.arm64_v8a.apk" ]; then
+            echo "=== arm64 split APK re-sign ediliyor ==="
+
+            # Eski imzayı kaldır, yeniden imzala
+            $BUILD_TOOLS/zipalign -v 4 splits/split_config.arm64_v8a.apk arm64-aligned.apk
+
+            $BUILD_TOOLS/apksigner sign \
+              --ks velaud-debug.keystore \
+              --ks-key-alias velaud \
+              --ks-pass pass:velaud123 \
+              --key-pass pass:velaud123 \
+              --out velaud-arm64-split-signed.apk \
+              arm64-aligned.apk
+
+            echo "=== arm64 split imzalandı ==="
+            ls -lh velaud-arm64-split-signed.apk
+          else
+            echo "splits/split_config.arm64_v8a.apk bulunamadı, atlanıyor"
+          fi
 
       - name: Get version info
         id: version
@@ -78,12 +100,21 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "build=$BUILD" >> $GITHUB_OUTPUT
           echo "APK Version: $VERSION ($BUILD)"
+          echo "Run number: ${{ github.run_number }}"
 
-      - name: Upload APK Artifact
+      - name: Upload base APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Velaud-AI-v${{ steps.version.outputs.version }}-${{ github.run_number }}
-          path: velaud-signed.apk
+          name: Velaud-AI-base-v${{ steps.version.outputs.version }}-run${{ github.run_number }}
+          path: velaud-base-signed.apk
+          retention-days: 30
+
+      - name: Upload arm64 split Artifact
+        if: hashFiles('velaud-arm64-split-signed.apk') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: Velaud-AI-arm64split-v${{ steps.version.outputs.version }}-run${{ github.run_number }}
+          path: velaud-arm64-split-signed.apk
           retention-days: 30
 
       - name: Create Release (main branch only)
@@ -93,22 +124,38 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}-build${{ github.run_number }}
           name: "Velaud AI v${{ steps.version.outputs.version }} (Build ${{ github.run_number }})"
           body: |
-            ## Velaud AI APK
+            ## 📱 Velaud AI APK
 
             **Versiyon:** ${{ steps.version.outputs.version }}
-            **Build:** ${{ steps.version.outputs.build }}
-            **Commit:** ${{ github.sha }}
+            **Build Numarası:** ${{ github.run_number }}
 
-            ### Değişiklikler
-            - Tüm limitler kaldırıldı (mesaj, dosya)
-            - Herkes max planda
-            - İkon değiştirildi
-            - Ödeme sistemi kaldırıldı
+            ---
 
-            ### Kurulum
-            APK'yı indir → Yükle (Bilinmeyen kaynaklara izin ver)
-          files: velaud-signed.apk
+            ### ✅ Yapılan değişiklikler
+            - Tüm mesaj ve dosya limitleri kaldırıldı
+            - Herkes otomatik MAX planda
+            - Ödeme sistemi tamamen kaldırıldı
+            - ARM64 native lib'leri base.apk içine gömüldü
+
+            ---
+
+            ### 📥 Kurulum Talimatları
+
+            #### Seçenek 1 — Tek APK (Önerilen ✅)
+            > Sadece **`velaud-base-signed.apk`** kur, başka dosyaya gerek yok.
+            > ARM64 native lib'leri zaten içinde gömülü.
+
+            #### Seçenek 2 — Split kurulum
+            > Önce **`velaud-base-signed.apk`**, ardından **`velaud-arm64-split-signed.apk`** kur.
+            > İkisi de aynı debug keystore ile imzalandı, birlikte çalışır.
+
+            > ⚠️ **Not:** Kurulum yaparken "Bilinmeyen kaynaklardan yükle" seçeneğini aktif et.
+
+          files: |
+            velaud-base-signed.apk
+            velaud-arm64-split-signed.apk
           draft: false
           prerelease: false
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

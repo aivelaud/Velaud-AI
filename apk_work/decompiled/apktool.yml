@@ -76,6 +76,7 @@ unknownFiles:
   google/protobuf/wrappers.proto: 8
   org/commonmark/internal/util/entities.properties: 8
 doNotCompress:
+- so
 - classes.dex
 - resources.arsc
 - META-INF/androidx.activity_activity-compose.version
