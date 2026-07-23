@@ -43,7 +43,7 @@
     # Başlık TextView (ağırlık=1, alanın tamamını kaplar)
     new-instance v0, Landroid/widget/TextView;
     invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
-    const-string v1, "VELAUD LOG\u00d6R\u00dcC\u00dc (son 30 dk)"
+    const-string v1, "VELAUD LOGLARI (son 30 dk)"
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     const v1, 0xFFE8E8E8
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
@@ -77,10 +77,10 @@
     invoke-virtual {v0, p0}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
     invoke-virtual {v8, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
 
-    # "Paylaş" butonu (tag=2)
+    # "İndir" butonu (tag=2)
     new-instance v0, Landroid/widget/Button;
     invoke-direct {v0, p0}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
-    const-string v1, "\ud83d\udce4 Payla\u015f"
+    const-string v1, "velaudlog.txt indir"
     invoke-virtual {v0, v1}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
     const v1, 0xFFFFFFFF
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
@@ -126,7 +126,7 @@
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextIsSelectable(Z)V
 
     # Logları yükle ve göster
-    invoke-static {}, Lcom/anthropic/velaud/velaudlog/VelaudLogHelper;->b()Ljava/lang/String;
+    invoke-static {p0}, Lcom/anthropic/velaud/velaudlog/VelaudLogHelper;->b(Landroid/content/Context;)Ljava/lang/String;
     move-result-object v1
     if-nez v1, :logs_ok
     const-string v1, "[Bo\u015f \u2014 log bulunamad\u0131]"
@@ -158,33 +158,17 @@
     const/4 v1, 0x1
     if-ne v0, v1, :check_share
     iget-object v2, p0, Lcom/anthropic/velaud/velaudlog/VelaudLogActivity;->logText:Landroid/widget/TextView;
-    invoke-static {}, Lcom/anthropic/velaud/velaudlog/VelaudLogHelper;->b()Ljava/lang/String;
+    invoke-static {p0}, Lcom/anthropic/velaud/velaudlog/VelaudLogHelper;->b(Landroid/content/Context;)Ljava/lang/String;
     move-result-object v3
     invoke-virtual {v2, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     invoke-virtual {p0}, Lcom/anthropic/velaud/velaudlog/VelaudLogActivity;->scrollBottom()V
     goto :done
 
-    # tag=2 → Paylaş (ACTION_SEND)
+    # tag=2 → cihazın Downloads klasörüne doğrudan indir
     :check_share
     const/4 v1, 0x2
     if-ne v0, v1, :done
-    iget-object v2, p0, Lcom/anthropic/velaud/velaudlog/VelaudLogActivity;->logText:Landroid/widget/TextView;
-    invoke-virtual {v2}, Landroid/widget/TextView;->getText()Ljava/lang/CharSequence;
-    move-result-object v2
-    invoke-virtual {v2}, Ljava/lang/Object;->toString()Ljava/lang/String;
-    move-result-object v2
-
-    new-instance v3, Landroid/content/Intent;
-    const-string v4, "android.intent.action.SEND"
-    invoke-direct {v3, v4}, Landroid/content/Intent;-><init>(Ljava/lang/String;)V
-    const-string v4, "text/plain"
-    invoke-virtual {v3, v4}, Landroid/content/Intent;->setType(Ljava/lang/String;)Landroid/content/Intent;
-    const-string v4, "android.intent.extra.TEXT"
-    invoke-virtual {v3, v4, v2}, Landroid/content/Intent;->putExtra(Ljava/lang/String;Ljava/lang/String;)Landroid/content/Intent;
-    const-string v4, "Velaud Loglar\u0131n\u0131 Payla\u015f"
-    invoke-static {v3, v4}, Landroid/content/Intent;->createChooser(Landroid/content/Intent;Ljava/lang/CharSequence;)Landroid/content/Intent;
-    move-result-object v3
-    invoke-virtual {p0, v3}, Landroid/app/Activity;->startActivity(Landroid/content/Intent;)V
+    invoke-static {p0}, Lcom/anthropic/velaud/velaudlog/VelaudLogHelper;->e(Landroid/content/Context;)V
 
     :done
     return-void

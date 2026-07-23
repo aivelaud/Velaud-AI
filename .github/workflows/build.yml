@@ -1,4 +1,4 @@
-name: Build Velaud AI APK
+name: Build Claude APK
 
 on:
   push:
@@ -46,6 +46,17 @@ jobs:
           ls work/
           echo "Smali dosya sayısı: $(find work/smali* -name '*.smali' 2>/dev/null | wc -l)"
 
+      - name: Claude manifestini uygula
+        run: |
+          echo "=== Metin manifest uygulanıyor ==="
+          sed \
+            -e 's/com\.anthropic\.velaud/com.anthropic.claude/g' \
+            -e 's#com/anthropic/velaud#com/anthropic/claude#g' \
+            apk_work/decompiled/AndroidManifest.xml > work/AndroidManifest.xml
+          grep -q 'package="com.anthropic.claude"' work/AndroidManifest.xml
+          grep -q 'com.anthropic.claude.velaudlog.VelaudLogActivity' work/AndroidManifest.xml
+          echo "✓ Manifest package: com.anthropic.claude"
+
       - name: Smali patchlerini uygula
         run: |
           echo "=== Patch dosyaları uygulanıyor ==="
@@ -63,31 +74,54 @@ jobs:
             && echo "✓ BellConfig.smali" || echo "✗ BellConfig.smali bulunamadı"
 
           # Organization - rate_limit_tier = 'max'
-          mkdir -p work/smali/com/anthropic/velaud/api/account/
+          mkdir -p work/smali/com/anthropic/claude/api/account/
           cp apk_work/decompiled/smali/com/anthropic/velaud/api/account/Organization.smali \
-             work/smali/com/anthropic/velaud/api/account/ \
+             work/smali/com/anthropic/claude/api/account/ \
             && echo "✓ Organization.smali" || echo "✗ Organization.smali bulunamadı"
 
           # File upload limit 10GB
-          mkdir -p "work/smali/com/anthropic/velaud/chat/input/files/"
+          mkdir -p "work/smali/com/anthropic/claude/chat/input/files/"
           cp "apk_work/decompiled/smali/com/anthropic/velaud/chat/input/files/a.smali" \
-             "work/smali/com/anthropic/velaud/chat/input/files/" \
+             "work/smali/com/anthropic/claude/chat/input/files/" \
             && echo "✓ files/a.smali" || echo "✗ files/a.smali bulunamadı"
 
-          # Velaud Log Görücü — bildirimden açılan log ekranı
-          mkdir -p "work/smali/com/anthropic/velaud/velaudlog/"
+          # Claude Log Görücü — kalıcı log + giriş ekranı indirme düğmesi
+          mkdir -p "work/smali/com/anthropic/claude/velaudlog/"
           cp "apk_work/decompiled/smali/com/anthropic/velaud/velaudlog/VelaudLogHelper.smali" \
-             "work/smali/com/anthropic/velaud/velaudlog/" \
+             "work/smali/com/anthropic/claude/velaudlog/" \
             && echo "✓ VelaudLogHelper.smali" || echo "✗ VelaudLogHelper.smali bulunamadı"
           cp "apk_work/decompiled/smali/com/anthropic/velaud/velaudlog/VelaudLogActivity.smali" \
-             "work/smali/com/anthropic/velaud/velaudlog/" \
+             "work/smali/com/anthropic/claude/velaudlog/" \
             && echo "✓ VelaudLogActivity.smali" || echo "✗ VelaudLogActivity.smali bulunamadı"
+          cp "apk_work/decompiled/smali/com/anthropic/velaud/velaudlog/VelaudLogButton.smali" \
+             "work/smali/com/anthropic/claude/velaudlog/" \
+            && echo "✓ VelaudLogButton.smali" || echo "✗ VelaudLogButton.smali bulunamadı"
+          cp "apk_work/decompiled/smali/com/anthropic/velaud/velaudlog/VelaudLogAttach.smali" \
+             "work/smali/com/anthropic/claude/velaudlog/" \
+            && echo "✓ VelaudLogAttach.smali" || echo "✗ VelaudLogAttach.smali bulunamadı"
+          cp "apk_work/decompiled/smali/com/anthropic/velaud/velaudlog/VelaudLogRecorder.smali" \
+             "work/smali/com/anthropic/claude/velaudlog/" \
+            && echo "✓ VelaudLogRecorder.smali" || echo "✗ VelaudLogRecorder.smali bulunamadı"
+
+          # Crash handler — çökmeyi kalıcı loga da ekler
+          mkdir -p "work/smali/com/anthropic/claude/crash/"
+          cp "apk_work/decompiled/smali/com/anthropic/velaud/crash/CrashHandler.smali" \
+             "work/smali/com/anthropic/claude/crash/" \
+            && echo "✓ CrashHandler.smali" || echo "✗ CrashHandler.smali bulunamadı"
 
           # MainActivity — log bildirimini başlatan enjeksiyon
-          mkdir -p "work/smali/com/anthropic/velaud/mainactivity/"
+          mkdir -p "work/smali/com/anthropic/claude/mainactivity/"
           cp "apk_work/decompiled/smali/com/anthropic/velaud/mainactivity/MainActivity.smali" \
-             "work/smali/com/anthropic/velaud/mainactivity/" \
+             "work/smali/com/anthropic/claude/mainactivity/" \
             && echo "✓ MainActivity.smali (log enjeksiyonu)" || echo "✗ MainActivity.smali bulunamadı"
+
+          # Eski patch kaynakları Velaud klasöründe tutulduğu için yalnızca
+          # kopyalanan sınıf descriptor'larını gerçek Claude paketine eşleştir.
+          find work/smali/com/anthropic/claude -type f -name '*.smali' -print0 | \
+          while IFS= read -r -d '' file; do
+            sed -i 's/com\.anthropic\.velaud/com.anthropic.claude/g' "$file"
+            sed -i 's#com/anthropic/velaud#com/anthropic/claude#g' "$file"
+          done
 
       - name: ARM64 native lib ekle
         run: |
@@ -121,7 +155,7 @@ jobs:
             echo "✓ original/ silindi"
           fi
 
-      - name: apktool.yml güncelle (package rename + doNotCompress)
+      - name: apktool.yml güncelle (Claude package + doNotCompress)
         working-directory: work
         run: |
           echo "=== Mevcut apktool.yml ==="
@@ -131,15 +165,15 @@ jobs:
           # apktool 2.9.3 freshdecompile'da "renameManifestPackage: null" yazar.
           # null = rename yok. "null" değerini gerçek paket adıyla değiştiriyoruz.
           if grep -q "renameManifestPackage: null" apktool.yml; then
-            sed -i 's/renameManifestPackage: null/renameManifestPackage: com.anthropic.velaud/' apktool.yml
-            echo "→ renameManifestPackage: null → com.anthropic.velaud değiştirildi"
+            sed -i 's/renameManifestPackage: null/renameManifestPackage: com.anthropic.claude/' apktool.yml
+            echo "→ renameManifestPackage: null → com.anthropic.claude değiştirildi"
           elif grep -q "renameManifestPackage:" apktool.yml; then
             # Zaten bir değer var, üzerine yaz
-            sed -i 's/renameManifestPackage:.*/renameManifestPackage: com.anthropic.velaud/' apktool.yml
+            sed -i 's/renameManifestPackage:.*/renameManifestPackage: com.anthropic.claude/' apktool.yml
             echo "→ renameManifestPackage güncellendi"
           else
             # Hiç yoksa ekle
-            sed -i '/forcedPackageId:/a\  renameManifestPackage: com.anthropic.velaud' apktool.yml
+            sed -i '/forcedPackageId:/a\  renameManifestPackage: com.anthropic.claude' apktool.yml
             echo "→ renameManifestPackage eklendi"
           fi
 
@@ -160,39 +194,46 @@ jobs:
           echo "=== Güncellenmiş apktool.yml ==="
           cat apktool.yml
 
-      - name: Manifest package rename doğrula
+      - name: Manifest package doğrula
         working-directory: work
         run: |
           echo "=== AndroidManifest.xml package kontrolü ==="
           grep -i "package" AndroidManifest.xml | head -5 || true
+          grep -q 'package="com.anthropic.claude"' AndroidManifest.xml
+          grep -q 'android:name="com.anthropic.claude.mainactivity.MainActivity"' AndroidManifest.xml
+          if grep -q 'com.anthropic.velaud' AndroidManifest.xml; then
+            echo "✗ Manifest içinde eski Velaud paket adı kaldı"
+            exit 1
+          fi
+          echo "✓ Final package: com.anthropic.claude"
           echo ""
-          echo "=== apktool.yml renameManifestPackage kontrolü ==="
-          grep "renameManifestPackage" apktool.yml && echo "✓ Rename aktif" || echo "✗ UYARI: Rename bulunamadı!"
+          echo "=== apktool.yml package kontrolü ==="
+          grep "renameManifestPackage" apktool.yml && echo "✓ Claude package aktif" || echo "✗ UYARI: Claude package bulunamadı!"
 
       - name: APK Build
         run: |
           echo "=== APK build ediliyor ==="
-          apktool b work/ -o velaud-unsigned.apk
+          apktool b work/ -o claude-unsigned.apk
 
           echo ""
-          ls -lh velaud-unsigned.apk
+          ls -lh claude-unsigned.apk
 
           echo ""
           echo "=== DEX + .so compression kontrolü ==="
-          unzip -v velaud-unsigned.apk | grep -E "\.dex|\.so|resources\.arsc"
+          unzip -v claude-unsigned.apk | grep -E "\.dex|\.so|resources\.arsc"
 
           echo ""
           echo "=== Package name doğrulama (rename çalıştı mı?) ==="
-          unzip -p velaud-unsigned.apk AndroidManifest.xml | strings | grep -i "anthropic" | head -5 || true
+          unzip -p claude-unsigned.apk AndroidManifest.xml | strings | grep -i "anthropic" | head -5 || true
 
       - name: Keystore oluştur
         run: |
           keytool -genkey -v \
-            -keystore velaud.keystore \
-            -alias velaud \
+            -keystore claude.keystore \
+            -alias claude \
             -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass velaud123 -keypass velaud123 \
-            -dname "CN=Velaud AI, OU=Dev, O=Velaud, L=Istanbul, ST=Istanbul, C=TR"
+            -dname "CN=Claude, OU=Dev, O=Claude, L=Istanbul, ST=Istanbul, C=TR"
 
       - name: Zipalign ve Sign
         run: |
@@ -201,24 +242,25 @@ jobs:
 
           # -p flag: .so dosyalarını 4096 byte (sayfa) hizasına getirir
           # extractNativeLibs=false için ZORUNLU — olmadan siyah/gri ekran
-          $BT/zipalign -p -f -v 4 velaud-unsigned.apk velaud-aligned.apk
+          $BT/zipalign -p -f -v 4 claude-unsigned.apk claude-aligned.apk
 
           $BT/apksigner sign \
-            --ks velaud.keystore \
-            --ks-key-alias velaud \
+            --ks claude.keystore \
+            --ks-key-alias claude \
             --ks-pass pass:velaud123 \
             --key-pass pass:velaud123 \
-            --out velaud-base-signed.apk \
-            velaud-aligned.apk
+            --out claude-base-signed.apk \
+            claude-aligned.apk
 
           echo ""
           echo "=== İmzalı APK ==="
-          ls -lh velaud-base-signed.apk
-          $BT/apksigner verify --verbose velaud-base-signed.apk
+          ls -lh claude-base-signed.apk
+          $BT/apksigner verify --verbose claude-base-signed.apk
 
           echo ""
           echo "=== Final APK package name (aapt) ==="
-          $BT/aapt dump badging velaud-base-signed.apk | grep "package:" || true
+          $BT/aapt dump badging claude-base-signed.apk | grep "package:"
+          $BT/aapt dump badging claude-base-signed.apk | grep -q "name='com.anthropic.claude'"
 
       - name: Get version info
         id: version
@@ -230,8 +272,8 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Velaud-AI-base-v${{ steps.version.outputs.version }}-run${{ github.run_number }}
-          path: velaud-base-signed.apk
+          name: Claude-base-v${{ steps.version.outputs.version }}-run${{ github.run_number }}
+          path: claude-base-signed.apk
           retention-days: 30
 
       - name: Create GitHub Release
@@ -239,9 +281,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}-build${{ github.run_number }}
-          name: "Velaud AI v${{ steps.version.outputs.version }} (Build ${{ github.run_number }})"
+          name: "Claude v${{ steps.version.outputs.version }} (Build ${{ github.run_number }})"
           body: |
-            ## 📱 Velaud AI APK
+            ## 📱 Claude APK
 
             **Versiyon:** ${{ steps.version.outputs.version }}
             **Build:** ${{ github.run_number }}
@@ -259,13 +301,13 @@ jobs:
 
             ### 📥 Kurulum
 
-            **Sadece `velaud-base-signed.apk` kur — başka dosya gerekmez.**
+            **Sadece `claude-base-signed.apk` kur — başka dosya gerekmez.**
             ARM64 native lib'leri zaten içinde, tek APK ile kurulur.
 
             > ⚠️ Ayarlar → Güvenlik → "Bilinmeyen kaynaklardan yükleme" aktif olmalı.
-            > ⚠️ Mevcut Claude uygulamasını önce kaldırmanıza gerek yok (farklı paket adı: com.anthropic.velaud).
+            > ⚠️ Mevcut Claude uygulamasının üzerine kurulabilir; paket adı: `com.anthropic.claude`.
 
-          files: velaud-base-signed.apk
+          files: claude-base-signed.apk
           draft: false
           prerelease: false
           fail_on_unmatched_files: false

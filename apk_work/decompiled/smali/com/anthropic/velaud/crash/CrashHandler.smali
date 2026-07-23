@@ -43,6 +43,10 @@
 
     iget-object v3, p0, Lcom/anthropic/velaud/crash/CrashHandler;->ctx:Landroid/content/Context;
 
+    invoke-static {v3, v2}, Lcom/anthropic/velaud/velaudlog/VelaudLogHelper;->f(Landroid/content/Context;Ljava/lang/String;)V
+
+    iget-object v3, p0, Lcom/anthropic/velaud/crash/CrashHandler;->ctx:Landroid/content/Context;
+
     const-string v4, "velaud_crash"
 
     const/4 v5, 0x0
