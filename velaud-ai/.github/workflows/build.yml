@@ -180,7 +180,9 @@ jobs:
           BT=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
           echo "Build tools: $BT"
 
-          $BT/zipalign -v 4 velaud-unsigned.apk velaud-aligned.apk
+          # -p flag: .so dosyalarını 4096 byte (sayfa) hizasına getirir
+          # extractNativeLibs=false için ZORUNLU — olmadan siyah/gri ekran
+          $BT/zipalign -p -f -v 4 velaud-unsigned.apk velaud-aligned.apk
 
           $BT/apksigner sign \
             --ks velaud.keystore \
