@@ -319,11 +319,9 @@ jobs:
           VERSION_CODE=$(grep "versionCode:" apk_work/decompiled/apktool.yml | awk '{print $2}')
           VERSION_NAME=$(grep "versionName:" apk_work/decompiled/apktool.yml | awk '{print $2}')
 
-          # Remove stale Play-generated split metadata before replacing the manifest.
-          ./aapt remove claude-unsigned.apk AndroidManifest.xml || true
-          ./aapt remove claude-unsigned.apk res/xml/splits0.xml || true
-
-          ./aapt package -u -f \
+          # Generate a fresh binary manifest and replace the APK entry explicitly.
+          # aapt package -u can retain the old application class from the APK.
+          ./aapt package -f \
             -M manifest_work/AndroidManifest.xml \
             -I "$FRAMEWORK" \
             -I orig_dir/base.apk \
@@ -332,22 +330,39 @@ jobs:
             --target-sdk-version 36 \
             --version-code "$VERSION_CODE" \
             --version-name "$VERSION_NAME" \
-            -F claude-unsigned.apk
+            -F manifest-only.apk
+
+          mkdir -p manifest_replace
+          unzip -p manifest-only.apk AndroidManifest.xml > manifest_replace/AndroidManifest.xml
+          test -s manifest_replace/AndroidManifest.xml || { echo "✗ Binary manifest üretilemedi"; exit 1; }
+          ./aapt remove claude-unsigned.apk AndroidManifest.xml || true
+          (cd manifest_replace && zip -q -j ../claude-unsigned.apk AndroidManifest.xml)
+          rm -rf manifest_replace manifest-only.apk
 
           # Manifest doğrula: package com.anthropic.claude olmalı
           ./aapt dump badging claude-unsigned.apk | grep -q "name='com.anthropic.claude'" \
             && echo "✓ APK package: com.anthropic.claude" \
             || (echo "✗ HATA: Package adı yanlış!" && exit 1)
 
-          # VelaudApplication velaud namespace'inde olmalı (DEX uyumu)
-          ./aapt dump xmltree claude-unsigned.apk AndroidManifest.xml | \
-            grep -q 'com.anthropic.velaud.application.VelaudApplication' \
+          MANIFEST_TREE=$(./aapt dump xmltree claude-unsigned.apk AndroidManifest.xml)
+          printf '%s\n' "$MANIFEST_TREE" | grep -q 'com.anthropic.velaud.application.VelaudApplication' \
             && echo "✓ VelaudApplication class (velaud) doğrulandı" \
-            || echo "⚠ UYARI: VelaudApplication velaud namespace'inde bulunamadı"
+            || { echo "✗ Application class manifest/DEX ile eşleşmiyor"; exit 1; }
+          printf '%s\n' "$MANIFEST_TREE" | grep -q 'com.anthropic.velaud.mainactivity.MainActivity' \
+            && echo "✓ MainActivity class (velaud) doğrulandı" \
+            || { echo "✗ MainActivity manifest/DEX ile eşleşmiyor"; exit 1; }
 
-          # VelaudLogActivity eklendi mi?
-          ./aapt dump xmltree claude-unsigned.apk AndroidManifest.xml | \
-            grep -q 'com.anthropic.velaud.velaudlog.VelaudLogActivity' \
+          FOUND_APP=0
+          FOUND_MAIN=0
+          for DEX in $(unzip -Z1 claude-unsigned.apk | grep -E "^classes[0-9]*\.dex$"); do
+            unzip -p claude-unsigned.apk "$DEX" | strings | grep -q 'Lcom/anthropic/velaud/application/VelaudApplication;' && FOUND_APP=1 || true
+            unzip -p claude-unsigned.apk "$DEX" | strings | grep -q 'Lcom/anthropic/velaud/mainactivity/MainActivity;' && FOUND_MAIN=1 || true
+          done
+          test "$FOUND_APP" = 1 || { echo "✗ VelaudApplication DEX'te bulunamadı"; exit 1; }
+          test "$FOUND_MAIN" = 1 || { echo "✗ MainActivity DEX'te bulunamadı"; exit 1; }
+          echo "✓ Manifest ve DEX class eşleşmesi doğrulandı"
+
+          printf '%s\n' "$MANIFEST_TREE" | grep -q 'com.anthropic.velaud.velaudlog.VelaudLogActivity' \
             && echo "✓ VelaudLogActivity doğrulandı" \
             || echo "⚠ VelaudLogActivity binary manifest'te bulunamadı"
 
