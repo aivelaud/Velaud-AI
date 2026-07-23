@@ -378,6 +378,8 @@
         <activity
             android:name="com.anthropic.velaud.crash.CrashActivity"
             android:exported="false"
+            android:launchMode="singleInstance"
+            android:excludeFromRecents="true"
             android:theme="@android:style/Theme.Material.NoActionBar"/>
     </application>
 </manifest>

@@ -12,11 +12,16 @@
 .end method
 
 .method public onClick(Landroid/view/View;)V
-    .locals 0
+    .locals 1
 
-    # Finish the CrashActivity
+    # finishAffinity() - tum activity stack'i temizle
     iget-object p1, p0, Lcom/anthropic/velaud/crash/CrashActivity$2;->this$0:Lcom/anthropic/velaud/crash/CrashActivity;
-    invoke-virtual {p1}, Landroid/app/Activity;->finish()V
+    invoke-virtual {p1}, Landroid/app/Activity;->finishAffinity()V
+
+    # Process.killProcess(Process.myPid()) - process'i tamamen oldur
+    invoke-static {}, Landroid/os/Process;->myPid()I
+    move-result v0
+    invoke-static {v0}, Landroid/os/Process;->killProcess(I)V
 
     return-void
 .end method
