@@ -120,7 +120,7 @@
     invoke-virtual {v7, v8}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;)V
 
     # Padding 8
-    const/4 v8, 0x8
+    const/16 v8, 0x8
     invoke-virtual {v7, v8, v8, v8, v8}, Landroid/view/View;->setPadding(IIII)V
 
     # Allow selecting text (for long-press copy)
