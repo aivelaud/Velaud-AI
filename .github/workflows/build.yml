@@ -233,19 +233,26 @@ jobs:
           echo "Eklenen lib'ler:"
           ls -lh work/lib/arm64-v8a/
 
-      - name: splits0.xml temizle (standalone APK için - split gereksinimi kaldır)
+      - name: Split metadata kaldır (standalone APK)
         run: |
-          echo "=== splits0.xml temizleniyor ==="
-          SPLITS_FILE="work/res/xml/splits0.xml"
-          if [ -f "$SPLITS_FILE" ]; then
-            echo "Mevcut splits0.xml:"
-            cat "$SPLITS_FILE"
-            echo ""
-            printf '<?xml version="1.0" encoding="utf-8"?>\n<splits>\n    <module name=""></module>\n</splits>\n' > "$SPLITS_FILE"
-            echo "✓ splits0.xml sıfırlandı (standalone APK)"
-          else
-            echo "splits0.xml bulunamadı, atlanıyor"
-          fi
+          echo "=== Split metadata kaldırılıyor ==="
+          node <<'NODE_SCRIPT'
+          const fs = require('fs');
+          const files = ['manifest_work/AndroidManifest.xml'];
+          for (const file of files) {
+            if (!fs.existsSync(file)) continue;
+            let text = fs.readFileSync(file, 'utf8');
+            text = text.replace(/\s+android:(?:requiredSplitTypes|splitTypes)="[^"]*"/g, '');
+            text = text.replace(/\s*<meta-data\b[^>]*android:name="com\.android\.vending\.splits(?:\.required)?"[^>]*\/>/g, '');
+            fs.writeFileSync(file, text);
+            console.log('✓ Split metadata temizlendi: ' + file);
+          }
+          const splitResource = 'work/res/xml/splits0.xml';
+          if (fs.existsSync(splitResource)) {
+            fs.unlinkSync(splitResource);
+            console.log('✓ ' + splitResource + ' kaldırıldı');
+          }
+          NODE_SCRIPT
 
       - name: apktool.yml güncelle (renameManifestPackage + doNotCompress)
         working-directory: work
@@ -312,6 +319,10 @@ jobs:
           VERSION_CODE=$(grep "versionCode:" apk_work/decompiled/apktool.yml | awk '{print $2}')
           VERSION_NAME=$(grep "versionName:" apk_work/decompiled/apktool.yml | awk '{print $2}')
 
+          # Remove stale Play-generated split metadata before replacing the manifest.
+          ./aapt remove claude-unsigned.apk AndroidManifest.xml || true
+          ./aapt remove claude-unsigned.apk res/xml/splits0.xml || true
+
           ./aapt package -u -f \
             -M manifest_work/AndroidManifest.xml \
             -I "$FRAMEWORK" \
@@ -349,7 +360,7 @@ jobs:
             -storepass velaud123 -keypass velaud123 \
             -dname "CN=Claude, OU=Dev, O=Claude, L=Istanbul, ST=Istanbul, C=TR"
 
-      - name: Zipalign ve Sign (base APK)
+      - name: Zipalign ve Sign (standalone APK)
         run: |
           BT=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
           echo "Build tools: $BT"
@@ -363,83 +374,32 @@ jobs:
             --ks-key-alias claude \
             --ks-pass pass:velaud123 \
             --key-pass pass:velaud123 \
-            --out claude-base-signed.apk \
+            --out claude-standalone-signed.apk \
             claude-aligned.apk
 
           echo ""
           echo "=== İmzalı base APK ==="
-          ls -lh claude-base-signed.apk
-          $BT/apksigner verify --verbose claude-base-signed.apk
+          ls -lh claude-standalone-signed.apk
+          $BT/apksigner verify --verbose claude-standalone-signed.apk
 
           echo ""
           echo "=== Final APK package name ==="
-          $BT/aapt dump badging claude-base-signed.apk | grep "package:"
-          $BT/aapt dump badging claude-base-signed.apk | grep -q "name='com.anthropic.claude'" \
+          $BT/aapt dump badging claude-standalone-signed.apk | grep "package:"
+          $BT/aapt dump badging claude-standalone-signed.apk | grep -q "name='com.anthropic.claude'" \
             && echo "✓ Package doğrulandı" || (echo "✗ Package hatası" && exit 1)
 
-      - name: split_config.arm64_v8a APK imzala
-        run: |
-          echo "=== split_config.arm64_v8a APK imzalanıyor ==="
-          BT=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
-
-          # Orijinal split_config'i zip'ten çıkar
-          unzip -o apk_work/base.apk.zip -d orig_dir/ || true
-
-          # Use the exact same version metadata as the base APK.
-          VERSION_CODE=$(grep "versionCode:" apk_work/decompiled/apktool.yml | awk '{print $2}')
-          VERSION_NAME=$(grep "versionName:" apk_work/decompiled/apktool.yml | awk '{print $2}')
-          test -n "$VERSION_CODE" || { echo "✗ versionCode bulunamadı"; exit 1; }
-          test -n "$VERSION_NAME" || { echo "✗ versionName bulunamadı"; exit 1; }
-          echo "Split version: ${VERSION_NAME} (${VERSION_CODE})"
-          SPLIT_SRC="apk_work/decompiled/lib/arm64-v8a"
-          test -d "$SPLIT_SRC" || { echo "✗ arm64 lib kaynağı bulunamadı"; exit 1; }
-          mkdir -p split_work/lib/arm64-v8a
-          cp "$SPLIT_SRC"/*.so split_work/lib/arm64-v8a/
-
-          # Compile the manifest to Android binary XML before signing.
-          printf '%s\n' \
-            '<?xml version="1.0" encoding="utf-8"?>' \
-            '<manifest xmlns:android="http://schemas.android.com/apk/res/android"' \
-            '    package="com.anthropic.claude"' \
-            '    split="config.arm64_v8a">' \
-            '    <uses-sdk android:minSdkVersion="32" android:targetSdkVersion="36"/>' \
-            '    <application/>' \
-            '</manifest>' \
-            > split_work/AndroidManifest.xml
-
-          FRAMEWORK=$(find "$HOME/.local/share/apktool/framework" -name 1.apk -print -quit)
-          test -n "$FRAMEWORK" || { echo "✗ Android framework APK bulunamadı"; exit 1; }
-          ./aapt package -f \
-            -M split_work/AndroidManifest.xml \
-            -I "$FRAMEWORK" \
-            --min-sdk-version 32 \
-            --target-sdk-version 36 \
-            --version-code "$VERSION_CODE" \
-            --version-name "$VERSION_NAME" \
-            -F split-unsigned.apk
-
-          # aapt writes the binary AndroidManifest.xml; append the native libraries.
-          (cd split_work && zip -q -r ../split-unsigned.apk lib/)
-          echo "split-unsigned.apk oluşturuldu ($(du -sh split-unsigned.apk | cut -f1))"
-          unzip -p split-unsigned.apk AndroidManifest.xml | file -
-          SPLIT_BADGING=$(./aapt dump badging split-unsigned.apk)
-          printf '%s\n' "$SPLIT_BADGING" | grep -E "package:|split="
-          printf '%s\n' "$SPLIT_BADGING" | grep -q "versionCode='$VERSION_CODE'" || { echo "✗ Split versionCode ana APK ile eşleşmiyor"; exit 1; }
-          echo "✓ Split versionCode doğrulandı: $VERSION_CODE"
-          # Zipalign + İmzala
-          $BT/zipalign -p -f -v 4 split-unsigned.apk split-aligned.apk
-          $BT/apksigner sign \
-            --ks claude.keystore \
-            --ks-key-alias claude \
-            --ks-pass pass:velaud123 \
-            --key-pass pass:velaud123 \
-            --out split_config.arm64_v8a-signed.apk \
-            split-aligned.apk
-
-          echo ""
-          echo "=== İmzalı split APK ==="
-          ls -lh split_config.arm64_v8a-signed.apk
-          $BT/apksigner verify --verbose split_config.arm64_v8a-signed.apk
+          echo "=== Standalone split metadata doğrulaması ==="
+          XMLTREE="$($BT/aapt dump xmltree claude-standalone-signed.apk AndroidManifest.xml)"
+          if printf '%s\n' "$XMLTREE" | grep -Eq 'requiredSplitTypes|splitTypes|com.android.vending.splits'; then
+            echo "✗ Standalone APK hâlâ split metadata içeriyor"
+            printf '%s\n' "$XMLTREE" | grep -E -C 2 'requiredSplitTypes|splitTypes|com.android.vending.splits' || true
+            exit 1
+          fi
+          if unzip -l claude-standalone-signed.apk | grep -q 'res/xml/splits0.xml'; then
+            echo "✗ Standalone APK hâlâ splits0.xml içeriyor"
+            exit 1
+          fi
+          echo "✓ Standalone APK split metadata içermiyor"
 
       - name: Get version info
         id: version
@@ -453,8 +413,7 @@ jobs:
         with:
           name: Claude-v${{ steps.version.outputs.version }}-run${{ github.run_number }}
           path: |
-            claude-base-signed.apk
-            split_config.arm64_v8a-signed.apk
+            claude-standalone-signed.apk
           retention-days: 30
 
       - name: Create GitHub Release
@@ -475,8 +434,8 @@ jobs:
             - Tüm mesaj ve dosya limitleri kaldırıldı
             - Herkes otomatik MAX planda
             - Ödeme sistemi kaldırıldı
-            - ARM64 native lib'leri base.apk içine gömüldü
-            - Split APK gereksinimi kaldırıldı (standalone kurulum)
+            - ARM64 native lib'leri standalone APK içine gömüldü
+            - Dil, yoğunluk ve ABI split gereksinimleri kaldırıldı
             - **Crash düzeltmesi:** Manifest class isimleri DEX ile uyumlu hale getirildi
             - CrashActivity manifest'e eklendi (crash logları görünür)
 
@@ -484,14 +443,14 @@ jobs:
 
             ### 📥 Kurulum
 
-            **Sadece `claude-base-signed.apk` kur — ARM64 lib'leri içinde.**
+            **Yalnızca `claude-standalone-signed.apk` dosyasını kur. Bu APK standalone'dır ve ARM64 lib'lerini içerir.**
 
             > ⚠️ Ayarlar → Güvenlik → "Bilinmeyen kaynaklardan yükleme" aktif olmalı.
-            > ⚠️ Mevcut Claude uygulamasının üzerine kurulabilir; paket adı: `com.anthropic.claude`.
+            > ⚠️ Eski `base.apk` ve `split_config.*.apk` dosyalarını bu dosyayla birlikte kullanmayın.
+            > ⚠️ Önceki farklı imzalı kurulumu kaldırmanız gerekebilir; paket adı: `com.anthropic.claude`.
 
           files: |
-            claude-base-signed.apk
-            split_config.arm64_v8a-signed.apk
+            claude-standalone-signed.apk
           draft: false
           prerelease: false
           fail_on_unmatched_files: false
