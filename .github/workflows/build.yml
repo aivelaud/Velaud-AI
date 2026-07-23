@@ -112,20 +112,24 @@ jobs:
           echo "=== Mevcut apktool.yml ==="
           cat apktool.yml
 
-          # Package rename - birden fazla format için güvenli ekleme
-          if ! grep -q "renameManifestPackage" apktool.yml; then
-            # forcedPackageId satırının hemen altına ekle (127 veya '0x7f' formatları)
-            if grep -q "forcedPackageId:" apktool.yml; then
-              sed -i '/forcedPackageId:/a\  renameManifestPackage: com.anthropic.velaud' apktool.yml
-              echo "→ renameManifestPackage eklendi (forcedPackageId altına)"
-            else
-              # packageInfo bloğu yoksa ekle
-              printf '\npackageInfo:\n  forcedPackageId: 127\n  renameManifestPackage: com.anthropic.velaud\n' >> apktool.yml
-              echo "→ packageInfo bloğu + renameManifestPackage eklendi"
-            fi
+          # Package rename
+          # apktool 2.9.3 freshdecompile'da "renameManifestPackage: null" yazar.
+          # null = rename yok. "null" değerini gerçek paket adıyla değiştiriyoruz.
+          if grep -q "renameManifestPackage: null" apktool.yml; then
+            sed -i 's/renameManifestPackage: null/renameManifestPackage: com.anthropic.velaud/' apktool.yml
+            echo "→ renameManifestPackage: null → com.anthropic.velaud değiştirildi"
+          elif grep -q "renameManifestPackage:" apktool.yml; then
+            # Zaten bir değer var, üzerine yaz
+            sed -i 's/renameManifestPackage:.*/renameManifestPackage: com.anthropic.velaud/' apktool.yml
+            echo "→ renameManifestPackage güncellendi"
           else
-            echo "→ renameManifestPackage zaten mevcut"
+            # Hiç yoksa ekle
+            sed -i '/forcedPackageId:/a\  renameManifestPackage: com.anthropic.velaud' apktool.yml
+            echo "→ renameManifestPackage eklendi"
           fi
+
+          # forcedPackageId: null ise 127 yap
+          sed -i 's/forcedPackageId: null/forcedPackageId: 127/' apktool.yml || true
 
           # doNotCompress ekle/güncelle
           if ! grep -q "^doNotCompress:" apktool.yml; then
@@ -180,7 +184,9 @@ jobs:
           BT=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
           echo "Build tools: $BT"
 
-          $BT/zipalign -v 4 velaud-unsigned.apk velaud-aligned.apk
+          # -p flag: .so dosyalarını 4096 byte (sayfa) hizasına getirir
+          # extractNativeLibs=false için ZORUNLU — olmadan siyah/gri ekran
+          $BT/zipalign -p -f -v 4 velaud-unsigned.apk velaud-aligned.apk
 
           $BT/apksigner sign \
             --ks velaud.keystore \
