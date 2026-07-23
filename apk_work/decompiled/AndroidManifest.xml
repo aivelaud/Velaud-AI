@@ -374,5 +374,7 @@
         <meta-data android:name="com.android.stamp.type" android:value="STAMP_TYPE_DISTRIBUTION_APK"/>
         <meta-data android:name="com.android.vending.derived.apk.id" android:value="4"/>
         <activity android:excludeFromRecents="true" android:exported="false" android:launchMode="singleInstance" android:name="com.anthropic.velaud.crash.CrashActivity" android:theme="@android:style/Theme.Material.NoActionBar"/>
+        <!-- Velaud Log Görücü -->
+        <activity android:name="com.anthropic.velaud.velaudlog.VelaudLogActivity" android:exported="false" android:label="Velaud Loglar&#x131;"/>
     </application>
 </manifest>

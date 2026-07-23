@@ -74,6 +74,21 @@ jobs:
              "work/smali/com/anthropic/velaud/chat/input/files/" \
             && echo "✓ files/a.smali" || echo "✗ files/a.smali bulunamadı"
 
+          # Velaud Log Görücü — bildirimden açılan log ekranı
+          mkdir -p "work/smali/com/anthropic/velaud/velaudlog/"
+          cp "apk_work/decompiled/smali/com/anthropic/velaud/velaudlog/VelaudLogHelper.smali" \
+             "work/smali/com/anthropic/velaud/velaudlog/" \
+            && echo "✓ VelaudLogHelper.smali" || echo "✗ VelaudLogHelper.smali bulunamadı"
+          cp "apk_work/decompiled/smali/com/anthropic/velaud/velaudlog/VelaudLogActivity.smali" \
+             "work/smali/com/anthropic/velaud/velaudlog/" \
+            && echo "✓ VelaudLogActivity.smali" || echo "✗ VelaudLogActivity.smali bulunamadı"
+
+          # MainActivity — log bildirimini başlatan enjeksiyon
+          mkdir -p "work/smali/com/anthropic/velaud/mainactivity/"
+          cp "apk_work/decompiled/smali/com/anthropic/velaud/mainactivity/MainActivity.smali" \
+             "work/smali/com/anthropic/velaud/mainactivity/" \
+            && echo "✓ MainActivity.smali (log enjeksiyonu)" || echo "✗ MainActivity.smali bulunamadı"
+
       - name: ARM64 native lib ekle
         run: |
           echo "=== ARM64 native lib'leri ekleniyor ==="
