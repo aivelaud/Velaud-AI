@@ -222,6 +222,12 @@ jobs:
              "work/smali/com/anthropic/velaud/crash/" \
             && echo "✓ CrashHandler.smali" || echo "✗ CrashHandler.smali bulunamadı"
 
+          # Application — manifestte başlatılan gerçek patched class
+          mkdir -p "work/smali/com/anthropic/velaud/application/"
+          cp "apk_work/decompiled/smali/com/anthropic/velaud/application/VelaudApplication.smali" \
+             "work/smali/com/anthropic/velaud/application/" \
+            && echo "✓ VelaudApplication.smali" || { echo "✗ VelaudApplication.smali bulunamadı"; exit 1; }
+
           # MainActivity — log bildirimini başlatan enjeksiyon (orijinalin üzerine yazar)
           mkdir -p "work/smali/com/anthropic/velaud/mainactivity/"
           cp "apk_work/decompiled/smali/com/anthropic/velaud/mainactivity/MainActivity.smali" \
