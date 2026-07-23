@@ -29,16 +29,16 @@ jobs:
           chmod +x /usr/local/bin/apktool
           apktool --version
 
-      - name: Orijinal APK çıkar + Decompile (kaynaklar binary korunuyor)
+      - name: Orijinal APK çıkar + Smali decompile
         run: |
           echo "=== Orijinal APK çıkarılıyor ==="
           unzip -o apk_work/base.apk.zip -d orig_dir/
           ls -lh orig_dir/base.apk
 
           echo ""
-          echo "=== APK decompile ediliyor (-r: resources.arsc değişmez) ==="
-          # -r flag: kaynakları BINARY olarak koru, sadece smali decode et
-          # Bu sayede resources.arsc orijinal kalır → resource ID uyumsuzluğu olmaz
+          echo "=== Smali decompile ediliyor (binary kaynaklar korunuyor) ==="
+          # -r ile kaynaklar ve binary manifest korunur; böylece uygulamanın
+          # özel resource attribute'ları yeniden derlenmeye çalışılmaz.
           apktool d -r -f orig_dir/base.apk -o work/
 
           echo ""
@@ -46,15 +46,35 @@ jobs:
           ls work/
           echo "Smali dosya sayısı: $(find work/smali* -name '*.smali' 2>/dev/null | wc -l)"
 
-      - name: Claude manifestini uygula
+      - name: Manifesti text olarak decode et
         run: |
-          echo "=== Metin manifest uygulanıyor ==="
-          sed \
-            -e 's/com\.anthropic\.velaud/com.anthropic.claude/g' \
-            -e 's#com/anthropic/velaud#com/anthropic/claude#g' \
-            apk_work/decompiled/AndroidManifest.xml > work/AndroidManifest.xml
-          grep -q 'package="com.anthropic.claude"' work/AndroidManifest.xml
-          grep -q 'com.anthropic.claude.velaudlog.VelaudLogActivity' work/AndroidManifest.xml
+          echo "=== Manifest ayrı decode ediliyor ==="
+          apktool d -s -f orig_dir/base.apk -o manifest_work/
+          file manifest_work/AndroidManifest.xml
+
+      - name: Log Activity manifest kaydını hazırla
+        run: |
+          echo "=== Log Activity manifest'e ekleniyor ==="
+          python3 - <<'PY'
+          from pathlib import Path
+
+          manifest = Path("manifest_work/AndroidManifest.xml")
+          text = manifest.read_text(encoding="utf-8")
+          activity_name = "com.anthropic.claude.velaudlog.VelaudLogActivity"
+          if activity_name not in text:
+              marker = "</application>"
+              if marker not in text:
+                  raise SystemExit("AndroidManifest.xml içinde application kapanışı bulunamadı")
+              activity = (
+                  '        <activity android:exported="false" '
+                  f'android:name="{activity_name}" '
+                  'android:label="Velaud Loglar&#x131;"/>'
+              )
+              text = text.replace(marker, activity + "\n" + marker, 1)
+              manifest.write_text(text, encoding="utf-8")
+          PY
+          grep -q 'package="com.anthropic.claude"' manifest_work/AndroidManifest.xml
+          grep -q 'com.anthropic.claude.velaudlog.VelaudLogActivity' manifest_work/AndroidManifest.xml
           echo "✓ Manifest package: com.anthropic.claude"
 
       - name: Smali patchlerini uygula
@@ -148,13 +168,6 @@ jobs:
             echo "splits0.xml bulunamadı, atlanıyor"
           fi
 
-          # Eğer original/ içinde binary manifest varsa sil (apktool kendi decode'unu kullansın)
-          if [ -d "work/original" ]; then
-            echo "=== original/ dizini siliniyor (binary manifest bypass) ==="
-            rm -rf work/original/
-            echo "✓ original/ silindi"
-          fi
-
       - name: apktool.yml güncelle (Claude package + doNotCompress)
         working-directory: work
         run: |
@@ -195,7 +208,7 @@ jobs:
           cat apktool.yml
 
       - name: Manifest package doğrula
-        working-directory: work
+        working-directory: manifest_work
         run: |
           echo "=== AndroidManifest.xml package kontrolü ==="
           grep -i "package" AndroidManifest.xml | head -5 || true
@@ -225,6 +238,39 @@ jobs:
           echo ""
           echo "=== Package name doğrulama (rename çalıştı mı?) ==="
           unzip -p claude-unsigned.apk AndroidManifest.xml | strings | grep -i "anthropic" | head -5 || true
+
+      - name: Binary manifesti APK'ya uygula
+        run: |
+          echo "=== Manifest binary XML'e çevriliyor ==="
+          unzip -p apk_work/apktool.jar prebuilt/linux/aapt_64 > aapt
+          chmod +x aapt
+          FRAMEWORK=$(find "$HOME/.local/share/apktool/framework" -name 1.apk -print -quit)
+          if [ -z "$FRAMEWORK" ]; then
+            echo "Apktool framework 1.apk bulunamadı"
+            exit 1
+          fi
+
+          VERSION_CODE=$(grep "versionCode:" apk_work/decompiled/apktool.yml | awk '{print $2}')
+          VERSION_NAME=$(grep "versionName:" apk_work/decompiled/apktool.yml | awk '{print $2}')
+
+          # -r build'i metin manifesti APK'ya ham olarak kopyalar. aapt -u,
+          # aynı APK'nın kaynak tablosunu koruyarak yalnızca manifesti geçerli
+          # Android binary XML'e dönüştürür.
+          ./aapt package -u -f \
+            -M manifest_work/AndroidManifest.xml \
+            -I "$FRAMEWORK" \
+            -I orig_dir/base.apk \
+            --forced-package-id 127 \
+            --min-sdk-version 32 \
+            --target-sdk-version 36 \
+            --version-code "$VERSION_CODE" \
+            --version-name "$VERSION_NAME" \
+            -F claude-unsigned.apk
+
+          ./aapt dump badging claude-unsigned.apk | grep -q "name='com.anthropic.claude'"
+          ./aapt dump xmltree claude-unsigned.apk AndroidManifest.xml | \
+            grep -q 'com.anthropic.claude.velaudlog.VelaudLogActivity'
+          echo "✓ Binary manifest ve Claude package doğrulandı"
 
       - name: Keystore oluştur
         run: |
