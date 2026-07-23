@@ -2980,13 +2980,13 @@
     if-eqz v17, :cond_14
 
     # PATCHED: 10GB limit
-    const-wide v17, 0x280000000
+    const-wide v17, 0x0000000280000000
 
     goto :goto_e
 
     :cond_14
     # PATCHED: 10GB limit
-    const-wide v17, 0x280000000
+    const-wide v17, 0x0000000280000000
 
     :goto_e
     sget-object v19, La61;->a:Lu51;
