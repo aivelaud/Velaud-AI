@@ -392,6 +392,7 @@ jobs:
           test -n "$VERSION_NAME" || { echo "✗ versionName bulunamadı"; exit 1; }
           echo "Split version: ${VERSION_NAME} (${VERSION_CODE})"
           mkdir -p split_work/lib/arm64-v8a
+          cp "$SPLIT_SRC"/*.so split_work/lib/arm64-v8a/
 
           # Compile the manifest to Android binary XML before signing.
           printf '%s\n' \
