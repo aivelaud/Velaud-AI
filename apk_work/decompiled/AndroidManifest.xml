@@ -374,5 +374,10 @@
         <meta-data android:name="com.android.stamp.type" android:value="STAMP_TYPE_DISTRIBUTION_APK"/>
         
         <meta-data android:name="com.android.vending.derived.apk.id" android:value="4"/>
+    
+        <activity
+            android:name="com.anthropic.velaud.crash.CrashActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.NoActionBar"/>
     </application>
 </manifest>
