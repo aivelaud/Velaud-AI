@@ -394,15 +394,15 @@ jobs:
 
             # Minimal split manifest
             cat > split_work/AndroidManifest.xml <<'XML'
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.anthropic.claude"
-    android:versionCode="1"
-    split="config.arm64_v8a">
-    <uses-sdk android:minSdkVersion="32" android:targetSdkVersion="36"/>
-    <application/>
-</manifest>
-XML
+            <?xml version="1.0" encoding="utf-8"?>
+            <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+                package="com.anthropic.claude"
+                android:versionCode="1"
+                split="config.arm64_v8a">
+                <uses-sdk android:minSdkVersion="32" android:targetSdkVersion="36"/>
+                <application/>
+            </manifest>
+            XML
 
             cd split_work && zip -r ../split-unsigned.apk lib/ AndroidManifest.xml && cd ..
             echo "split-unsigned.apk oluşturuldu ($(du -sh split-unsigned.apk | cut -f1))"
