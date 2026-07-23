@@ -948,6 +948,10 @@
 
     move-result-object v9
 
+    instance-of v10, v9, Lcom/anthropic/velaud/api/account/Organization;
+
+    if-eqz v10, :cond_org_null
+
     check-cast v9, Lcom/anthropic/velaud/api/account/Organization;
 
     invoke-static {v9}, Lp8;->A(Lcom/anthropic/velaud/api/account/Organization;)Llqh;
@@ -1161,6 +1165,12 @@
     throw v0
     :try_end_5
     .catchall {:try_start_5 .. :try_end_5} :catchall_0
+
+    :cond_org_null
+    const/4 v10, 0x0
+    iput-boolean v10, v1, Lb3d;->I:Z
+    monitor-exit p0
+    return-void
 
     :cond_e
     :goto_a
