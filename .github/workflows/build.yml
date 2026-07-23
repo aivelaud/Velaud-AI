@@ -385,15 +385,14 @@ jobs:
           # Orijinal split_config'i zip'ten çıkar
           unzip -o apk_work/base.apk.zip -d orig_dir/ || true
 
-          # base.apk.zip'te split yoksa, decompiled lib'lerden yeniden paketle
+          # Build the split from the ARM64 native libraries.
           SPLIT_SRC="apk_work/decompiled/lib/arm64-v8a"
-          if [ -d "$SPLIT_SRC" ]; then
-            echo "→ arm64 lib'lerden split_config paketi oluşturuluyor"
-            mkdir -p split_work/lib/arm64-v8a
-            cp "$SPLIT_SRC"/*.so split_work/lib/arm64-v8a/
+          test -d "$SPLIT_SRC" || { echo "✗ arm64 lib kaynağı bulunamadı"; exit 1; }
+          echo "→ arm64 lib'lerden split_config paketi oluşturuluyor"
+          mkdir -p split_work/lib/arm64-v8a
+          cp "$SPLIT_SRC"/*.so split_work/lib/arm64-v8a/
 
-            # Minimal split manifest. It must be compiled to Android binary XML
-          # before signing; apksigner rejects a plain-text manifest inside an APK.
+          # Compile the manifest to Android binary XML before signing.
           printf '%s\n' \
             '<?xml version="1.0" encoding="utf-8"?>' \
             '<manifest xmlns:android="http://schemas.android.com/apk/res/android"' \
@@ -420,6 +419,7 @@ jobs:
           echo "split-unsigned.apk oluşturuldu ($(du -sh split-unsigned.apk | cut -f1))"
           unzip -p split-unsigned.apk AndroidManifest.xml | file -
           ./aapt dump badging split-unsigned.apk | grep -E "package:|split="
+
           # Zipalign + İmzala
           $BT/zipalign -p -f -v 4 split-unsigned.apk split-aligned.apk
           $BT/apksigner sign \
