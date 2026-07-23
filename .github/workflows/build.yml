@@ -36,13 +36,11 @@ jobs:
       - name: Build APK with Apktool
         run: |
           # Sadece smali -> dex ve manifest derle (resources.arsc rebuild atlanir)
-          # --no-res: aapt2 ile resources.arsc derleme (bozuk output'u onlemek icin)
           apktool b apk_work/decompiled --no-res -o /tmp/rebuilt.apk
           echo "Apktool rebuild tamamlandi"
-          echo "Rebuilt APK icindekiler:"
           unzip -l /tmp/rebuilt.apk | grep -E "classes|AndroidManifest"
 
-          # Orijinal base.apk'yi temel al (dogru resources.arsc + tum res/ dosyalari)
+          # Orijinal base.apk'yi temel al
           cp apk_work/extracted/base.apk claude-unsigned.apk
           echo "Orijinal base.apk: $(ls -lh claude-unsigned.apk)"
 
@@ -50,30 +48,42 @@ jobs:
           zip -d claude-unsigned.apk "META-INF/*" 2>/dev/null || true
           zip -d claude-unsigned.apk "classes.dex" "classes2.dex" "classes3.dex" 2>/dev/null || true
           zip -d claude-unsigned.apk "AndroidManifest.xml" 2>/dev/null || true
+          # Varsa eski native lib'leri de kaldir (yenisi gelecek)
+          zip -d claude-unsigned.apk "lib/*" 2>/dev/null || true
 
           # Apktool'un yeniden derledigini alanlari cikar
           mkdir -p /tmp/rebuilt-files
           unzip -j /tmp/rebuilt.apk "classes*.dex" "AndroidManifest.xml" -d /tmp/rebuilt-files/
-          echo "Cikartilan dosyalar:"
           ls -lh /tmp/rebuilt-files/
 
-          # Yeni dex'leri APK'ya uncompressed ekle (Android standardi)
+          # Yeni dex'leri APK'ya uncompressed ekle
           (cd /tmp/rebuilt-files && zip -0 $GITHUB_WORKSPACE/claude-unsigned.apk classes*.dex)
 
-          # Yeni AndroidManifest.xml'i APK'ya ekle (split gereksinimleri kaldirildi)
+          # Yeni AndroidManifest.xml'i ekle
           (cd /tmp/rebuilt-files && zip $GITHUB_WORKSPACE/claude-unsigned.apk AndroidManifest.xml)
 
-          # Kullanicinin ekledigi icon dosyalarini APK'ya ekle
-          (cd apk_work/decompiled && \
-            find res -name "ic_launcher_velaud*" -type f | while IFS= read -r f; do \
-              echo "Icon ekleniyor: $f"; \
-              zip $GITHUB_WORKSPACE/claude-unsigned.apk "$f"; \
-            done)
+          # === NATIVE KÜTÜPHANELER: split_config.arm64_v8a.apk'dan al ===
+          SPLIT_APK="apk_work/splits/split_config.arm64_v8a.apk"
+          if [ -f "$SPLIT_APK" ]; then
+            echo "Split APK bulundu, native lib'ler cikariliyor..."
+            mkdir -p /tmp/native-libs
+            unzip -o "$SPLIT_APK" "lib/arm64-v8a/*" -d /tmp/native-libs/
+            SO_COUNT=$(find /tmp/native-libs/lib -name "*.so" | wc -l)
+            echo "$SO_COUNT adet .so dosyasi bulundu"
+            find /tmp/native-libs/lib -name "*.so" | head -10
+            # .so dosyalarini APK'ya uncompressed ekle (Android gereksinimi)
+            (cd /tmp/native-libs && zip -0 $GITHUB_WORKSPACE/claude-unsigned.apk lib/arm64-v8a/*.so)
+            echo "Native lib'ler APK'ya eklendi"
+          else
+            echo "UYARI: $SPLIT_APK bulunamadi - native lib'ler yok, uygulama crash yapabilir!"
+          fi
+          # === NATIVE KÜTÜPHANELER SONU ===
 
           echo ""
           echo "=== BUILD SONUCU ==="
           echo "APK boyutu: $(ls -lh claude-unsigned.apk)"
           echo "Dosya sayisi: $(unzip -l claude-unsigned.apk | tail -1)"
+          echo "Native lib sayisi: $(unzip -l claude-unsigned.apk | grep '\.so' | wc -l)"
 
       - name: Generate Debug Keystore
         run: |
