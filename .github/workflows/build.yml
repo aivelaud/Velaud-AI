@@ -93,12 +93,7 @@ jobs:
             cat "$SPLITS_FILE"
             echo ""
             # Boş splits tanımına sıfırla - hiçbir split gerekmediğini belirt
-            cat > "$SPLITS_FILE" << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<splits>
-    <module name=""></module>
-</splits>
-EOF
+            printf '<?xml version="1.0" encoding="utf-8"?>\n<splits>\n    <module name=""></module>\n</splits>\n' > "$SPLITS_FILE"
             echo "✓ splits0.xml sıfırlandı (standalone APK)"
           else
             echo "splits0.xml bulunamadı, atlanıyor"
