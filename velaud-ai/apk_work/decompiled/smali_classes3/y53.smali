@@ -1,0 +1,161 @@
+.class public final Ly53;
+.super Ljava/lang/Object;
+.source "SourceFile"
+
+# interfaces
+.implements Lz53;
+.implements Lf63;
+
+
+# instance fields
+.field public final a:Ljava/util/UUID;
+
+.field public final b:Lcom/anthropic/velaud/api/chat/MessageUnknownFile;
+
+.field public final c:Ljava/lang/String;
+
+
+# direct methods
+.method public constructor <init>(Ljava/util/UUID;Lcom/anthropic/velaud/api/chat/MessageUnknownFile;)V
+    .locals 0
+
+    invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    iput-object p1, p0, Ly53;->a:Ljava/util/UUID;
+
+    iput-object p2, p0, Ly53;->b:Lcom/anthropic/velaud/api/chat/MessageUnknownFile;
+
+    invoke-virtual {p2}, Lcom/anthropic/velaud/api/chat/MessageUnknownFile;->getFile_name()Ljava/lang/String;
+
+    move-result-object p1
+
+    iput-object p1, p0, Ly53;->c:Ljava/lang/String;
+
+    return-void
+.end method
+
+
+# virtual methods
+.method public final equals(Ljava/lang/Object;)Z
+    .locals 2
+
+    if-ne p0, p1, :cond_0
+
+    goto :goto_1
+
+    :cond_0
+    instance-of v0, p1, Ly53;
+
+    if-nez v0, :cond_1
+
+    goto :goto_0
+
+    :cond_1
+    check-cast p1, Ly53;
+
+    iget-object v0, p0, Ly53;->a:Ljava/util/UUID;
+
+    iget-object v1, p1, Ly53;->a:Ljava/util/UUID;
+
+    invoke-static {v0, v1}, Lbo9;->p(Ljava/lang/Object;Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-nez v0, :cond_2
+
+    goto :goto_0
+
+    :cond_2
+    iget-object p0, p0, Ly53;->b:Lcom/anthropic/velaud/api/chat/MessageUnknownFile;
+
+    iget-object p1, p1, Ly53;->b:Lcom/anthropic/velaud/api/chat/MessageUnknownFile;
+
+    invoke-virtual {p0, p1}, Lcom/anthropic/velaud/api/chat/MessageUnknownFile;->equals(Ljava/lang/Object;)Z
+
+    move-result p0
+
+    if-nez p0, :cond_3
+
+    :goto_0
+    const/4 p0, 0x0
+
+    return p0
+
+    :cond_3
+    :goto_1
+    const/4 p0, 0x1
+
+    return p0
+.end method
+
+.method public final g()Lcom/anthropic/velaud/api/chat/MessageFile;
+    .locals 0
+
+    iget-object p0, p0, Ly53;->b:Lcom/anthropic/velaud/api/chat/MessageUnknownFile;
+
+    return-object p0
+.end method
+
+.method public final hashCode()I
+    .locals 1
+
+    iget-object v0, p0, Ly53;->a:Ljava/util/UUID;
+
+    invoke-virtual {v0}, Ljava/util/UUID;->hashCode()I
+
+    move-result v0
+
+    mul-int/lit8 v0, v0, 0x1f
+
+    iget-object p0, p0, Ly53;->b:Lcom/anthropic/velaud/api/chat/MessageUnknownFile;
+
+    invoke-virtual {p0}, Lcom/anthropic/velaud/api/chat/MessageUnknownFile;->hashCode()I
+
+    move-result p0
+
+    add-int/2addr p0, v0
+
+    return p0
+.end method
+
+.method public final k()Ljava/util/UUID;
+    .locals 0
+
+    iget-object p0, p0, Ly53;->a:Ljava/util/UUID;
+
+    return-object p0
+.end method
+
+.method public final toString()Ljava/lang/String;
+    .locals 2
+
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    const-string v1, "UnknownServerDocument(localId="
+
+    invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    iget-object v1, p0, Ly53;->a:Ljava/util/UUID;
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+
+    const-string v1, ", file="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    iget-object p0, p0, Ly53;->b:Lcom/anthropic/velaud/api/chat/MessageUnknownFile;
+
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+
+    const-string p0, ")"
+
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object p0
+
+    return-object p0
+.end method

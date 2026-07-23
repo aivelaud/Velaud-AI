@@ -1,0 +1,131 @@
+.class public final Luvb;
+.super Ljava/lang/Object;
+.source "SourceFile"
+
+# interfaces
+.implements Lm55;
+
+
+# instance fields
+.field public final a:I
+
+.field public final b:Z
+
+
+# direct methods
+.method public constructor <init>(Ljava/lang/String;IZ)V
+    .locals 0
+
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    iput p2, p0, Luvb;->a:I
+
+    iput-boolean p3, p0, Luvb;->b:Z
+
+    return-void
+.end method
+
+
+# virtual methods
+.method public final a(Lw0b;Li0b;Lxi1;)Lh45;
+    .locals 0
+
+    iget-object p1, p1, Lw0b;->K:Liz5;
+
+    iget-object p1, p1, Liz5;->a:Ljava/util/HashSet;
+
+    sget-object p2, Lx0b;->E:Lx0b;
+
+    invoke-virtual {p1, p2}, Ljava/util/HashSet;->contains(Ljava/lang/Object;)Z
+
+    move-result p1
+
+    if-nez p1, :cond_0
+
+    const-string p0, "Animation contains merge paths but they are disabled."
+
+    invoke-static {p0}, Lzta;->a(Ljava/lang/String;)V
+
+    const/4 p0, 0x0
+
+    return-object p0
+
+    :cond_0
+    new-instance p1, Lvvb;
+
+    invoke-direct {p1, p0}, Lvvb;-><init>(Luvb;)V
+
+    return-object p1
+.end method
+
+.method public final toString()Ljava/lang/String;
+    .locals 2
+
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    const-string v1, "MergePaths{mode="
+
+    invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    const/4 v1, 0x1
+
+    iget p0, p0, Luvb;->a:I
+
+    if-eq p0, v1, :cond_4
+
+    const/4 v1, 0x2
+
+    if-eq p0, v1, :cond_3
+
+    const/4 v1, 0x3
+
+    if-eq p0, v1, :cond_2
+
+    const/4 v1, 0x4
+
+    if-eq p0, v1, :cond_1
+
+    const/4 v1, 0x5
+
+    if-eq p0, v1, :cond_0
+
+    const-string p0, "null"
+
+    goto :goto_0
+
+    :cond_0
+    const-string p0, "EXCLUDE_INTERSECTIONS"
+
+    goto :goto_0
+
+    :cond_1
+    const-string p0, "INTERSECT"
+
+    goto :goto_0
+
+    :cond_2
+    const-string p0, "SUBTRACT"
+
+    goto :goto_0
+
+    :cond_3
+    const-string p0, "ADD"
+
+    goto :goto_0
+
+    :cond_4
+    const-string p0, "MERGE"
+
+    :goto_0
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const/16 p0, 0x7d
+
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(C)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object p0
+
+    return-object p0
+.end method

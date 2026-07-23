@@ -1,0 +1,37 @@
+.class public final Lrih;
+.super Ljava/lang/Object;
+.source "SourceFile"
+
+
+# static fields
+.field public static final synthetic a:Lrih;
+
+
+# direct methods
+.method static constructor <clinit>()V
+    .locals 1
+
+    new-instance v0, Lrih;
+
+    invoke-direct {v0}, Ljava/lang/Object;-><init>()V
+
+    sput-object v0, Lrih;->a:Lrih;
+
+    return-void
+.end method
+
+
+# virtual methods
+.method public final serializer()Lkotlinx/serialization/KSerializer;
+    .locals 0
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()",
+            "Lkotlinx/serialization/KSerializer;"
+        }
+    .end annotation
+
+    sget-object p0, Lcom/anthropic/velaud/sessions/types/c2;->c:Lcom/anthropic/velaud/sessions/types/c2;
+
+    return-object p0
+.end method

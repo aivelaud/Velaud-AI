@@ -1,0 +1,19 @@
+.class public final Lo24;
+.super Ljava/lang/Object;
+.source "SourceFile"
+
+
+# virtual methods
+.method public final serializer()Lkotlinx/serialization/KSerializer;
+    .locals 0
+    .annotation system Ldalvik/annotation/Signature;
+        value = {
+            "()",
+            "Lkotlinx/serialization/KSerializer;"
+        }
+    .end annotation
+
+    sget-object p0, Ln24;->a:Ln24;
+
+    return-object p0
+.end method

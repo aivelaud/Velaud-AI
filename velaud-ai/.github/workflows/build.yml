@@ -1,0 +1,252 @@
+name: Build Velaud AI APK
+
+on:
+  push:
+    branches: [ main, clean-main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Download Apktool
+        run: |
+          wget -q https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -O /usr/local/bin/apktool.jar
+          wget -q https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool -O /usr/local/bin/apktool
+          chmod +x /usr/local/bin/apktool
+          apktool --version
+
+      - name: Orijinal APK çıkar + Decompile (kaynaklar binary korunuyor)
+        run: |
+          echo "=== Orijinal APK çıkarılıyor ==="
+          unzip -o apk_work/base.apk.zip -d orig_dir/
+          ls -lh orig_dir/base.apk
+
+          echo ""
+          echo "=== APK decompile ediliyor (-r: resources.arsc değişmez) ==="
+          # -r flag: kaynakları BINARY olarak koru, sadece smali decode et
+          # Bu sayede resources.arsc orijinal kalır → resource ID uyumsuzluğu olmaz
+          apktool d -r -f orig_dir/base.apk -o work/
+
+          echo ""
+          echo "=== work/ içeriği ==="
+          ls work/
+          echo "Smali dosya sayısı: $(find work/smali* -name '*.smali' 2>/dev/null | wc -l)"
+
+      - name: Smali patchlerini uygula
+        run: |
+          echo "=== Patch dosyaları uygulanıyor ==="
+
+          # Rate limit bypass (b3d)
+          cp apk_work/decompiled/smali/b3d.smali work/smali/ \
+            && echo "✓ b3d.smali" || echo "✗ b3d.smali bulunamadı"
+
+          # ExceedsLimit bypass (ig3)
+          cp apk_work/decompiled/smali/ig3.smali work/smali/ \
+            && echo "✓ ig3.smali" || echo "✗ ig3.smali bulunamadı"
+
+          # BellConfig
+          cp apk_work/decompiled/smali/BellConfig.smali work/smali/ \
+            && echo "✓ BellConfig.smali" || echo "✗ BellConfig.smali bulunamadı"
+
+          # Organization - rate_limit_tier = 'max'
+          mkdir -p work/smali/com/anthropic/velaud/api/account/
+          cp apk_work/decompiled/smali/com/anthropic/velaud/api/account/Organization.smali \
+             work/smali/com/anthropic/velaud/api/account/ \
+            && echo "✓ Organization.smali" || echo "✗ Organization.smali bulunamadı"
+
+          # File upload limit 10GB
+          mkdir -p "work/smali/com/anthropic/velaud/chat/input/files/"
+          cp "apk_work/decompiled/smali/com/anthropic/velaud/chat/input/files/a.smali" \
+             "work/smali/com/anthropic/velaud/chat/input/files/" \
+            && echo "✓ files/a.smali" || echo "✗ files/a.smali bulunamadı"
+
+      - name: ARM64 native lib ekle
+        run: |
+          echo "=== ARM64 native lib'leri ekleniyor ==="
+          mkdir -p work/lib/arm64-v8a/
+          cp apk_work/decompiled/lib/arm64-v8a/*.so work/lib/arm64-v8a/
+          echo "Eklenen lib'ler:"
+          ls -lh work/lib/arm64-v8a/
+
+      - name: splits0.xml temizle (standalone APK için - split gereksinimi kaldır)
+        run: |
+          echo "=== splits0.xml temizleniyor ==="
+          # Bu dosya Android'e hangi split APK'ların gerekli olduğunu söyler.
+          # Standalone APK olarak kurulabilmesi için boşaltılması gerekiyor.
+          SPLITS_FILE="work/res/xml/splits0.xml"
+          if [ -f "$SPLITS_FILE" ]; then
+            echo "Mevcut splits0.xml:"
+            cat "$SPLITS_FILE"
+            echo ""
+            # Boş splits tanımına sıfırla - hiçbir split gerekmediğini belirt
+            printf '<?xml version="1.0" encoding="utf-8"?>\n<splits>\n    <module name=""></module>\n</splits>\n' > "$SPLITS_FILE"
+            echo "✓ splits0.xml sıfırlandı (standalone APK)"
+          else
+            echo "splits0.xml bulunamadı, atlanıyor"
+          fi
+
+          # Eğer original/ içinde binary manifest varsa sil (apktool kendi decode'unu kullansın)
+          if [ -d "work/original" ]; then
+            echo "=== original/ dizini siliniyor (binary manifest bypass) ==="
+            rm -rf work/original/
+            echo "✓ original/ silindi"
+          fi
+
+      - name: apktool.yml güncelle (package rename + doNotCompress)
+        working-directory: work
+        run: |
+          echo "=== Mevcut apktool.yml ==="
+          cat apktool.yml
+
+          # Package rename - birden fazla format için güvenli ekleme
+          if ! grep -q "renameManifestPackage" apktool.yml; then
+            # forcedPackageId satırının hemen altına ekle (127 veya '0x7f' formatları)
+            if grep -q "forcedPackageId:" apktool.yml; then
+              sed -i '/forcedPackageId:/a\  renameManifestPackage: com.anthropic.velaud' apktool.yml
+              echo "→ renameManifestPackage eklendi (forcedPackageId altına)"
+            else
+              # packageInfo bloğu yoksa ekle
+              printf '\npackageInfo:\n  forcedPackageId: 127\n  renameManifestPackage: com.anthropic.velaud\n' >> apktool.yml
+              echo "→ packageInfo bloğu + renameManifestPackage eklendi"
+            fi
+          else
+            echo "→ renameManifestPackage zaten mevcut"
+          fi
+
+          # doNotCompress ekle/güncelle
+          if ! grep -q "^doNotCompress:" apktool.yml; then
+            printf '\ndoNotCompress:\n- dex\n- so\n- resources.arsc\n' >> apktool.yml
+            echo "→ doNotCompress listesi eklendi"
+          else
+            grep -q "^- dex" apktool.yml || sed -i '/^doNotCompress:/a - dex' apktool.yml
+            grep -q "^- so"  apktool.yml || sed -i '/^doNotCompress:/a - so'  apktool.yml
+            echo "→ doNotCompress güncellendi"
+          fi
+
+          echo ""
+          echo "=== Güncellenmiş apktool.yml ==="
+          cat apktool.yml
+
+      - name: Manifest package rename doğrula
+        working-directory: work
+        run: |
+          echo "=== AndroidManifest.xml package kontrolü ==="
+          grep -i "package" AndroidManifest.xml | head -5 || true
+          echo ""
+          echo "=== apktool.yml renameManifestPackage kontrolü ==="
+          grep "renameManifestPackage" apktool.yml && echo "✓ Rename aktif" || echo "✗ UYARI: Rename bulunamadı!"
+
+      - name: APK Build
+        run: |
+          echo "=== APK build ediliyor ==="
+          apktool b work/ -o velaud-unsigned.apk
+
+          echo ""
+          ls -lh velaud-unsigned.apk
+
+          echo ""
+          echo "=== DEX + .so compression kontrolü ==="
+          unzip -v velaud-unsigned.apk | grep -E "\.dex|\.so|resources\.arsc"
+
+          echo ""
+          echo "=== Package name doğrulama (rename çalıştı mı?) ==="
+          unzip -p velaud-unsigned.apk AndroidManifest.xml | strings | grep -i "anthropic" | head -5 || true
+
+      - name: Keystore oluştur
+        run: |
+          keytool -genkey -v \
+            -keystore velaud.keystore \
+            -alias velaud \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass velaud123 -keypass velaud123 \
+            -dname "CN=Velaud AI, OU=Dev, O=Velaud, L=Istanbul, ST=Istanbul, C=TR"
+
+      - name: Zipalign ve Sign
+        run: |
+          BT=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
+          echo "Build tools: $BT"
+
+          $BT/zipalign -v 4 velaud-unsigned.apk velaud-aligned.apk
+
+          $BT/apksigner sign \
+            --ks velaud.keystore \
+            --ks-key-alias velaud \
+            --ks-pass pass:velaud123 \
+            --key-pass pass:velaud123 \
+            --out velaud-base-signed.apk \
+            velaud-aligned.apk
+
+          echo ""
+          echo "=== İmzalı APK ==="
+          ls -lh velaud-base-signed.apk
+          $BT/apksigner verify --verbose velaud-base-signed.apk
+
+          echo ""
+          echo "=== Final APK package name (aapt) ==="
+          $BT/aapt dump badging velaud-base-signed.apk | grep "package:" || true
+
+      - name: Get version info
+        id: version
+        run: |
+          VERSION=$(grep "versionName:" apk_work/decompiled/apktool.yml | awk '{print $2}')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION} | Run: ${{ github.run_number }}"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Velaud-AI-base-v${{ steps.version.outputs.version }}-run${{ github.run_number }}
+          path: velaud-base-signed.apk
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}-build${{ github.run_number }}
+          name: "Velaud AI v${{ steps.version.outputs.version }} (Build ${{ github.run_number }})"
+          body: |
+            ## 📱 Velaud AI APK
+
+            **Versiyon:** ${{ steps.version.outputs.version }}
+            **Build:** ${{ github.run_number }}
+
+            ---
+
+            ### ✅ Değişiklikler
+            - Tüm mesaj ve dosya limitleri kaldırıldı
+            - Herkes otomatik MAX planda
+            - Ödeme sistemi kaldırıldı
+            - ARM64 native lib'leri base.apk içine gömüldü (tek APK yeterli)
+            - Split APK gereksinimi kaldırıldı (standalone kurulum)
+
+            ---
+
+            ### 📥 Kurulum
+
+            **Sadece `velaud-base-signed.apk` kur — başka dosya gerekmez.**
+            ARM64 native lib'leri zaten içinde, tek APK ile kurulur.
+
+            > ⚠️ Ayarlar → Güvenlik → "Bilinmeyen kaynaklardan yükleme" aktif olmalı.
+            > ⚠️ Mevcut Claude uygulamasını önce kaldırmanıza gerek yok (farklı paket adı: com.anthropic.velaud).
+
+          files: velaud-base-signed.apk
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

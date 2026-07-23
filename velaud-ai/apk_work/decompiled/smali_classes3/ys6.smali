@@ -1,0 +1,83 @@
+.class public final Lys6;
+.super Lhlf;
+.source "SourceFile"
+
+
+# instance fields
+.field public final b:Ljava/lang/String;
+
+.field public final c:Lsbe;
+
+.field public final d:Ly42;
+
+.field public final e:Ly42;
+
+.field public final f:Ltad;
+
+.field public final g:Ltad;
+
+.field public final h:Ltad;
+
+.field public final i:Ly76;
+
+
+# direct methods
+.method public constructor <init>(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lsbe;Lhh6;)V
+    .locals 0
+
+    invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    invoke-virtual {p2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    invoke-direct {p0, p5}, Lhlf;-><init>(Lhh6;)V
+
+    iput-object p1, p0, Lys6;->b:Ljava/lang/String;
+
+    iput-object p4, p0, Lys6;->c:Lsbe;
+
+    invoke-static {}, Lnfl;->b()Ly42;
+
+    move-result-object p1
+
+    iput-object p1, p0, Lys6;->d:Ly42;
+
+    invoke-static {}, Lnfl;->b()Ly42;
+
+    move-result-object p1
+
+    iput-object p1, p0, Lys6;->e:Ly42;
+
+    invoke-static {p2}, Lao9;->U(Ljava/lang/Object;)Ltad;
+
+    move-result-object p1
+
+    iput-object p1, p0, Lys6;->f:Ltad;
+
+    invoke-static {p3}, Lao9;->U(Ljava/lang/Object;)Ltad;
+
+    move-result-object p1
+
+    iput-object p1, p0, Lys6;->g:Ltad;
+
+    sget-object p1, Lxs6;->E:Lxs6;
+
+    invoke-static {p1}, Lao9;->U(Ljava/lang/Object;)Ltad;
+
+    move-result-object p1
+
+    iput-object p1, p0, Lys6;->h:Ltad;
+
+    new-instance p1, Lws6;
+
+    const/4 p2, 0x0
+
+    invoke-direct {p1, p0, p2}, Lws6;-><init>(Lys6;I)V
+
+    invoke-static {p1}, Lao9;->D(La98;)Ly76;
+
+    move-result-object p1
+
+    iput-object p1, p0, Lys6;->i:Ly76;
+
+    return-void
+.end method
