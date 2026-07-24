@@ -265,6 +265,7 @@ jobs:
               "velaudlog/VelaudLogButton.smali",
               "velaudlog/VelaudLogHelper.smali",
               "velaudlog/VelaudLogRecorder.smali",
+              "velaudlog/VelaudLogLifecycle.smali",
           ]
 
           for relative_name in diagnostic_files:
