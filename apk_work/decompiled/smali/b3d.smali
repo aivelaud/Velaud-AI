@@ -1069,7 +1069,7 @@
     move-object v14, v4
 
     :goto_6
-    new-instance v15, Lcom/anthropic/velaud/api/common/RateLimit$ExceedsLimit;
+    goto/16 :goto_2
 
     new-instance v0, Ljava/util/Date;
 

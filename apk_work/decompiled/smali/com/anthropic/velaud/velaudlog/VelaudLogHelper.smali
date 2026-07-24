@@ -241,10 +241,11 @@
     return-object v0
 .end method
 
-# c(Context): Google giriş düğmesinin hemen üstüne indirme düğmesi ekle;
-# giriş sayfasında değilse düğmeyi gizle — diğer sayfalarda görünmesin
+# c(Context): Her Activity'de indirme düğmesini ekle/göster (Compose uyumlu)
+# Compose Canvas'a çizdiği için TextView araması çalışmıyor.
+# Çözüm: Doğrudan FrameLayout fallback pozisyona ekle, her zaman göster.
 .method public static c(Landroid/content/Context;)V
-    .locals 12
+    .locals 7
     instance-of v0, p0, Landroid/app/Activity;
     if-eqz v0, :done
     move-object v0, p0
@@ -257,30 +258,16 @@
     # Mevcut indirme düğmesini bul
     const-string v2, "velaud_log_download"
     invoke-virtual {v1, v2}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
-    move-result-object v2    # v2 = mevcut indirme butonu (null ise yok)
+    move-result-object v2
 
-    # Google "Continue with Google" butonunu ara — giriş sayfasında olup olmadığını anla
-    invoke-static {v1}, Lcom/anthropic/velaud/velaudlog/VelaudLogHelper;->i(Landroid/view/View;)Landroid/view/View;
-    move-result-object v3    # v3 = Google butonu (null ise giriş sayfası değil)
-
-    # Eğer indirme butonu zaten varsa: görünürlüğü ayarla ve çık
+    # Mevcut buton varsa → her zaman VISIBLE yap ve çık
     if-eqz v2, :no_existing_button
-    if-eqz v3, :hide_button
-    # Giriş sayfasındayız → butonu göster
-    const/4 v4, 0x0          # View.VISIBLE
-    invoke-virtual {v2, v4}, Landroid/view/View;->setVisibility(I)V
-    goto :done
-    :hide_button
-    # Giriş sayfasında değiliz → butonu gizle (GONE)
-    const/16 v4, 0x8          # View.GONE
-    invoke-virtual {v2, v4}, Landroid/view/View;->setVisibility(I)V
+    const/4 v3, 0x0
+    invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
     goto :done
 
     :no_existing_button
-    # İndirme butonu yok; yalnızca giriş sayfasındaysak ekle
-    if-eqz v3, :done         # Google butonu yok = giriş sayfası değil → ekleme
-
-    # Yeni indirme butonu oluştur (v4 olarak)
+    # Yeni indirme butonu oluştur
     new-instance v4, Landroid/widget/Button;
     invoke-direct {v4, v0}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
     const-string v2, "VelaudLog.txt indir"
@@ -293,33 +280,18 @@
     invoke-direct {v2, v0}, Lcom/anthropic/velaud/velaudlog/VelaudLogButton;-><init>(Landroid/content/Context;)V
     invoke-virtual {v4, v2}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
-    # v3 = Google butonu (zaten bulundu), Google'ın hemen üstüne ekle
-    invoke-virtual {v3}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
-    move-result-object v5
-    instance-of v6, v5, Landroid/view/ViewGroup;
-    if-eqz v6, :fallback_position
-    check-cast v5, Landroid/view/ViewGroup;
-    invoke-virtual {v5, v3}, Landroid/view/ViewGroup;->indexOfChild(Landroid/view/View;)I
-    move-result v6
-    if-ltz v6, :fallback_position
-    invoke-virtual {v3}, Landroid/view/View;->getLayoutParams()Landroid/view/ViewGroup$LayoutParams;
-    move-result-object v7
-    invoke-virtual {v5, v4, v6, v7}, Landroid/view/ViewGroup;->addView(Landroid/view/View;ILandroid/view/ViewGroup$LayoutParams;)V
-    goto :done
-
-    :fallback_position
+    # FrameLayout fallback: sağ-alt köşeye ekle (Compose uyumlu)
     check-cast v1, Landroid/view/ViewGroup;
     new-instance v2, Landroid/widget/FrameLayout$LayoutParams;
-    const/4 v5, -0x1
+    const/4 v5, -0x2
     const/4 v6, -0x2
     invoke-direct {v2, v5, v6}, Landroid/widget/FrameLayout$LayoutParams;-><init>(II)V
-    const/16 v5, 0x50
+    const/16 v5, 0x55
     iput v5, v2, Landroid/widget/FrameLayout$LayoutParams;->gravity:I
-    invoke-virtual {v1}, Landroid/view/View;->getHeight()I
-    move-result v5
-    const/4 v6, 0x4
-    div-int/2addr v5, v6
+    const/16 v5, 0x10
     iput v5, v2, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
+    const/16 v5, 0x10
+    iput v5, v2, Landroid/view/ViewGroup$MarginLayoutParams;->rightMargin:I
     invoke-virtual {v1, v4, v2}, Landroid/view/ViewGroup;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
     :done
     return-void
