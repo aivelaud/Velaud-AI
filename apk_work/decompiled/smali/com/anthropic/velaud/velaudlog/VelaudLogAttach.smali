@@ -16,13 +16,13 @@
 .end method
 
 .method public run()V
-    .locals 2
+    .locals 4
     # c() çağır: Google butonu varsa göster, yoksa gizle
     iget-object v0, p0, Lcom/anthropic/velaud/velaudlog/VelaudLogAttach;->context:Landroid/content/Context;
     invoke-static {v0}, Lcom/anthropic/velaud/velaudlog/VelaudLogHelper;->c(Landroid/content/Context;)V
     # 2 saniye sonra tekrar çalış (giriş/çıkış ekranı geçişlerini yakala)
     iget-object v0, p0, Lcom/anthropic/velaud/velaudlog/VelaudLogAttach;->decorView:Landroid/view/View;
-    const-wide/16 v1, 0x7D0
-    invoke-virtual {v0, p0, v1, v2}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
+    const-wide/16 v2, 0x7D0
+    invoke-virtual {v0, p0, v2, v3}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
     return-void
 .end method
