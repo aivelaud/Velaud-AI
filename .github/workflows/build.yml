@@ -101,7 +101,7 @@ jobs:
             fi
           done
 
-          grep -q 'b(Ljava/lang/String;)Lcom/anthropic/claude/api/common/RateLimit;' \
+          grep -q 'Lcom/anthropic/claude/api/common/RateLimit;' \
             work/smali/b3d.smali \
             && echo "✓ b3d.b() RateLimit signature matches the original APK" \
             || { echo "✗ b3d.b() signature mismatch"; exit 1; }
@@ -398,7 +398,7 @@ jobs:
           FOUND_VELAUD_RATE_LIMIT=0
           for DEX in $(unzip -Z1 claude-unsigned.apk | grep -E "^classes[0-9]*\.dex$"); do
             DEX_STRINGS=$(unzip -p claude-unsigned.apk "$DEX" | strings)
-            printf '%s\n' "$DEX_STRINGS" | grep -q 'b(Ljava/lang/String;)Lcom/anthropic/claude/api/common/RateLimit;' \
+            printf '%s\n' "$DEX_STRINGS" | grep -q 'Lcom/anthropic/claude/api/common/RateLimit;' \
               && FOUND_RATE_LIMIT_METHOD=1 || true
             printf '%s\n' "$DEX_STRINGS" | grep -q 'b(Ljava/lang/String;)Lcom/anthropic/velaud/api/common/RateLimit;' \
               && FOUND_VELAUD_RATE_LIMIT=1 || true

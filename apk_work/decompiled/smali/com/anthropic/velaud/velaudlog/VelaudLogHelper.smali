@@ -272,7 +272,7 @@
     if-ltz v6, :fallback_position
     invoke-virtual {v4}, Landroid/view/View;->getLayoutParams()Landroid/view/ViewGroup$LayoutParams;
     move-result-object v7
-    invoke-virtual {v5, v6, v2, v7}, Landroid/view/ViewGroup;->addView(ILandroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {v5, v2, v6, v7}, Landroid/view/ViewGroup;->addView(Landroid/view/View;ILandroid/view/ViewGroup$LayoutParams;)V
     goto :done
 
     :fallback_position
