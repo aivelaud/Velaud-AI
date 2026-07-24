@@ -77,13 +77,35 @@
     invoke-virtual {v0, p0}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
     invoke-virtual {v8, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
 
-    # "İndir" butonu (tag=2)
+    # "İndir" butonu (tag=2) — güzel gradient stilli
     new-instance v0, Landroid/widget/Button;
     invoke-direct {v0, p0}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
-    const-string v1, "velaudlog.txt indir"
+    const-string v1, "Son 30 dakikanın logunu indir"
     invoke-virtual {v0, v1}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+    const/4 v1, 0x0
+    invoke-virtual {v0, v1}, Landroid/widget/Button;->setAllCaps(Z)V
+    # Gradient arka plan
+    new-instance v6, Landroid/graphics/drawable/GradientDrawable;
+    sget-object v1, Landroid/graphics/drawable/GradientDrawable$Orientation;->LEFT_RIGHT:Landroid/graphics/drawable/GradientDrawable$Orientation;
+    const/4 v2, 0x2
+    new-array v2, v2, [I
+    const/4 v3, 0x0
+    const v4, 0xFF1A73E8
+    aput v4, v2, v3
+    const/4 v3, 0x1
+    const v4, 0xFF00897B
+    aput v4, v2, v3
+    invoke-direct {v6, v1, v2}, Landroid/graphics/drawable/GradientDrawable;-><init>(Landroid/graphics/drawable/GradientDrawable$Orientation;[I)V
+    const/16 v1, 0x18
+    int-to-float v1, v1
+    invoke-virtual {v6, v1}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
+    const/16 v1, 0x10
+    invoke-virtual {v6, v1, v1, v1, v1}, Landroid/graphics/drawable/GradientDrawable;->setPadding(IIII)V
+    invoke-virtual {v0, v6}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
     const v1, 0xFFFFFFFF
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
+    const/16 v1, 0x10
+    invoke-virtual {v0, v1, v1, v1, v1}, Landroid/view/View;->setPadding(IIII)V
     const/4 v1, 0x2
     invoke-static {v1}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
     move-result-object v1

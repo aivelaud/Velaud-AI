@@ -241,11 +241,12 @@
     return-object v0
 .end method
 
-# c(Context): Her Activity'de indirme düğmesini ekle/göster (Compose uyumlu)
-# Compose Canvas'a çizdiği için TextView araması çalışmıyor.
-# Çözüm: Doğrudan FrameLayout fallback pozisyona ekle, her zaman göster.
+# c(Context): Sadece giriş ekranında indirme düğmesini göster
+# Compose Canvas'a çizdiği için accessibility tree ile "Continue with Google"
+# metnini arar. Bulursa giriş ekranıdır → düğmeyi Google butonunun üstüne koy.
+# Bulamazsa → düğmeyi gizle.
 .method public static c(Landroid/content/Context;)V
-    .locals 7
+    .locals 9
     instance-of v0, p0, Landroid/app/Activity;
     if-eqz v0, :done
     move-object v0, p0
@@ -255,44 +256,88 @@
     invoke-virtual {v1}, Landroid/view/Window;->getDecorView()Landroid/view/View;
     move-result-object v1
 
-    # Mevcut indirme düğmesini bul
-    const-string v2, "velaud_log_download"
-    invoke-virtual {v1, v2}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
+    # Giriş ekranı mı? Accessibility tree'de "Continue with Google" ara
+    invoke-static {v1}, Lcom/anthropic/velaud/velaudlog/VelaudLogHelper;->i(Landroid/view/View;)Landroid/view/View;
     move-result-object v2
 
-    # Mevcut buton varsa → her zaman VISIBLE yap ve çık
-    if-eqz v2, :no_existing_button
-    const/4 v3, 0x0
-    invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
+    # Mevcut indirme düğmesini bul
+    const-string v3, "velaud_log_download"
+    invoke-virtual {v1, v3}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
+    move-result-object v3
+
+    # Giriş ekranı değilse → düğmeyi gizle (veya kaldır)
+    if-nez v2, :is_login
+    if-eqz v3, :done
+    const/16 v4, 0x8
+    invoke-virtual {v3, v4}, Landroid/view/View;->setVisibility(I)V
+    goto :done
+
+    :is_login
+    # Giriş ekranı — mevcut buton varsa VISIBLE yap ve çık
+    if-eqz v3, :no_existing_button
+    const/4 v4, 0x0
+    invoke-virtual {v3, v4}, Landroid/view/View;->setVisibility(I)V
     goto :done
 
     :no_existing_button
-    # Yeni indirme butonu oluştur
+    # Yeni güzel indirme butonu oluştur
     new-instance v4, Landroid/widget/Button;
     invoke-direct {v4, v0}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
-    const-string v2, "VelaudLog.txt indir"
-    invoke-virtual {v4, v2}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
-    const/4 v2, 0x0
-    invoke-virtual {v4, v2}, Landroid/widget/Button;->setAllCaps(Z)V
-    const-string v2, "velaud_log_download"
-    invoke-virtual {v4, v2}, Landroid/view/View;->setTag(Ljava/lang/Object;)V
-    new-instance v2, Lcom/anthropic/velaud/velaudlog/VelaudLogButton;
-    invoke-direct {v2, v0}, Lcom/anthropic/velaud/velaudlog/VelaudLogButton;-><init>(Landroid/content/Context;)V
-    invoke-virtual {v4, v2}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+    const-string v5, "Son 30 dakikanın logunu indir"
+    invoke-virtual {v4, v5}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+    const/4 v5, 0x0
+    invoke-virtual {v4, v5}, Landroid/widget/Button;->setAllCaps(Z)V
 
-    # FrameLayout fallback: sağ-alt köşeye ekle (Compose uyumlu)
+    # Arka plan: GradientDrawable (mavi→teal gradient, yuvarlatılmış köşeler)
+    new-instance v6, Landroid/graphics/drawable/GradientDrawable;
+    sget-object v5, Landroid/graphics/drawable/GradientDrawable$Orientation;->LEFT_RIGHT:Landroid/graphics/drawable/GradientDrawable$Orientation;
+    const/4 v7, 0x2
+    new-array v7, v7, [I
+    const/4 v8, 0x0
+    const v0, 0xFF1A73E8
+    aput v0, v7, v8
+    const/4 v8, 0x1
+    const v0, 0xFF00897B
+    aput v0, v7, v8
+    invoke-direct {v6, v5, v7}, Landroid/graphics/drawable/GradientDrawable;-><init>(Landroid/graphics/drawable/GradientDrawable$Orientation;[I)V
+    const/16 v5, 0x18
+    int-to-float v5, v5
+    invoke-virtual {v6, v5}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
+    const/16 v5, 0x10
+    invoke-virtual {v6, v5, v5, v5, v5}, Landroid/graphics/drawable/GradientDrawable;->setPadding(IIII)V
+    invoke-virtual {v4, v6}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
+
+    # Metin rengi beyaz, padding
+    const v5, 0xFFFFFFFF
+    invoke-virtual {v4, v5}, Landroid/widget/TextView;->setTextColor(I)V
+    const/16 v5, 0x10
+    invoke-virtual {v4, v5, v5, v5, v5}, Landroid/view/View;->setPadding(IIII)V
+    const/4 v5, 0x5
+    int-to-float v5, v5
+    invoke-virtual {v4, v5}, Landroid/widget/TextView;->setTextSize(F)V
+
+    # Tag ve click listener
+    const-string v5, "velaud_log_download"
+    invoke-virtual {v4, v5}, Landroid/view/View;->setTag(Ljava/lang/Object;)V
+    new-instance v5, Lcom/anthropic/velaud/velaudlog/VelaudLogButton;
+    invoke-direct {v5, p0}, Lcom/anthropic/velaud/velaudlog/VelaudLogButton;-><init>(Landroid/content/Context;)V
+    invoke-virtual {v4, v5}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+
+    # Google butonunun üstüne yerleştir: alt-orta, Google butonundan yukarıda
     check-cast v1, Landroid/view/ViewGroup;
-    new-instance v2, Landroid/widget/FrameLayout$LayoutParams;
-    const/4 v5, -0x2
-    const/4 v6, -0x2
-    invoke-direct {v2, v5, v6}, Landroid/widget/FrameLayout$LayoutParams;-><init>(II)V
-    const/16 v5, 0x55
-    iput v5, v2, Landroid/widget/FrameLayout$LayoutParams;->gravity:I
-    const/16 v5, 0x10
-    iput v5, v2, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
-    const/16 v5, 0x10
-    iput v5, v2, Landroid/view/ViewGroup$MarginLayoutParams;->rightMargin:I
-    invoke-virtual {v1, v4, v2}, Landroid/view/ViewGroup;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    new-instance v5, Landroid/widget/FrameLayout$LayoutParams;
+    const/4 v7, -0x1
+    const/4 v8, -0x2
+    invoke-direct {v5, v7, v8}, Landroid/widget/FrameLayout$LayoutParams;-><init>(II)V
+    const/16 v7, 0x50
+    iput v7, v5, Landroid/widget/FrameLayout$LayoutParams;->gravity:I
+    const/16 v7, 0x60
+    iput v7, v5, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
+    const/16 v7, 0x30
+    iput v7, v5, Landroid/view/ViewGroup$MarginLayoutParams;->leftMargin:I
+    const/16 v7, 0x30
+    iput v7, v5, Landroid/view/ViewGroup$MarginLayoutParams;->rightMargin:I
+    invoke-virtual {v1, v4, v5}, Landroid/view/ViewGroup;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
     :done
     return-void
 .end method
