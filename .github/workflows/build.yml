@@ -82,14 +82,32 @@ jobs:
           echo "NOT: Orijinal ClaudeApplication korunuyor — crash döngüsü riski yok"
 
           # --- Obfuscated root-level bypass patch'leri ---
-          cp apk_work/decompiled/smali/b3d.smali work/smali/ \
-            && echo "✓ b3d.smali (rate limit bypass)" || echo "✗ b3d.smali bulunamadı"
+          # These classes are root-level, but their model types live under
+          # com.anthropic.claude in the real APK. The checked-in patch sources
+          # retain the decompiler's velaud namespace, so rewrite it before
+          # assembling; otherwise the verifier sees a different RateLimit type
+          # and the app crashes with NoSuchMethodError after OTP.
+          for PATCH in b3d ig3 BellConfig; do
+            SOURCE="apk_work/decompiled/smali/${PATCH}.smali"
+            TARGET="work/smali/${PATCH}.smali"
+            if [ -f "$SOURCE" ]; then
+              sed 's|com/anthropic/velaud/|com/anthropic/claude/|g
+                   s|com\.anthropic\.velaud\.|com.anthropic.claude.|g' \
+                "$SOURCE" > "$TARGET"
+              echo "✓ ${PATCH}.smali (namespace mapped to claude)"
+            else
+              echo "✗ ${PATCH}.smali bulunamadı"
+              exit 1
+            fi
+          done
 
-          cp apk_work/decompiled/smali/ig3.smali work/smali/ \
-            && echo "✓ ig3.smali (limit bypass)" || echo "✗ ig3.smali bulunamadı"
-
-          cp apk_work/decompiled/smali/BellConfig.smali work/smali/ \
-            && echo "✓ BellConfig.smali" || echo "✗ BellConfig.smali bulunamadı"
+          grep -q 'b(Ljava/lang/String;)Lcom/anthropic/claude/api/common/RateLimit;' \
+            work/smali/b3d.smali \
+            && echo "✓ b3d.b() RateLimit signature matches the original APK" \
+            || { echo "✗ b3d.b() signature mismatch"; exit 1; }
+          if grep -q 'com/anthropic/velaud/' work/smali/b3d.smali; then
+            echo "✗ b3d still contains velaud type references"; exit 1
+          fi
 
           # --- Organization patch: rate_limit_tier = 'max' ---
           # Orijinal class com.anthropic.claude.api.account.Organization'dır.
@@ -371,6 +389,26 @@ jobs:
           printf '%s\n' "$MANIFEST_TREE" | grep -q 'velaudlog.VelaudLogActivity' \
             && echo "✓ VelaudLogActivity manifest'te mevcut" \
             || { echo "✗ VelaudLogActivity manifest'te yok"; exit 1; }
+
+          # Patched root-level classes must expose the original Claude
+          # namespace in their method descriptors. A velaud return type here
+          # is binary-incompatible with the caller and causes NoSuchMethodError
+          # when the post-OTP chat screen initializes.
+          FOUND_RATE_LIMIT_METHOD=0
+          FOUND_VELAUD_RATE_LIMIT=0
+          for DEX in $(unzip -Z1 claude-unsigned.apk | grep -E "^classes[0-9]*\.dex$"); do
+            DEX_STRINGS=$(unzip -p claude-unsigned.apk "$DEX" | strings)
+            printf '%s\n' "$DEX_STRINGS" | grep -q 'b(Ljava/lang/String;)Lcom/anthropic/claude/api/common/RateLimit;' \
+              && FOUND_RATE_LIMIT_METHOD=1 || true
+            printf '%s\n' "$DEX_STRINGS" | grep -q 'b(Ljava/lang/String;)Lcom/anthropic/velaud/api/common/RateLimit;' \
+              && FOUND_VELAUD_RATE_LIMIT=1 || true
+          done
+          test "$FOUND_RATE_LIMIT_METHOD" = 1 \
+            && echo "✓ b3d.b() Claude RateLimit descriptor in final DEX" \
+            || { echo "✗ b3d.b() Claude RateLimit descriptor missing"; exit 1; }
+          test "$FOUND_VELAUD_RATE_LIMIT" = 0 \
+            && echo "✓ No velaud RateLimit descriptor in final DEX" \
+            || { echo "✗ velaud RateLimit descriptor leaked into final DEX"; exit 1; }
 
           # Split metadata olmamalı
           if printf '%s\n' "$MANIFEST_TREE" | grep -Eq 'requiredSplitTypes|splitTypes|com.android.vending.splits'; then

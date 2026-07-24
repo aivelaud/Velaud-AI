@@ -172,9 +172,67 @@
     return-object v0
 .end method
 
-# c(Context): MainActivity dekorunun altına sayfa değiştirmeyen indirme düğmesi ekle
+# i(View): Google giriş görünümünü metin veya erişilebilirlik açıklamasıyla bul
+.method private static i(Landroid/view/View;)Landroid/view/View;
+    .locals 6
+    instance-of v0, p0, Landroid/widget/TextView;
+    if-eqz v0, :search_children
+    move-object v0, p0
+    check-cast v0, Landroid/widget/TextView;
+    invoke-virtual {v0}, Landroid/widget/TextView;->getText()Ljava/lang/CharSequence;
+    move-result-object v1
+    if-eqz v1, :check_description
+    invoke-interface {v1}, Ljava/lang/CharSequence;->toString()Ljava/lang/String;
+    move-result-object v1
+    const-string v2, "Continue with Google"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-nez v3, :found
+
+    :check_description
+    invoke-virtual {v0}, Landroid/view/View;->getContentDescription()Ljava/lang/CharSequence;
+    move-result-object v1
+    if-eqz v1, :search_children
+    invoke-interface {v1}, Ljava/lang/CharSequence;->toString()Ljava/lang/String;
+    move-result-object v1
+    const-string v2, "Continue with Google"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-nez v3, :found
+
+    :search_children
+    instance-of v0, p0, Landroid/view/ViewGroup;
+    if-eqz v0, :not_found
+    move-object v0, p0
+    check-cast v0, Landroid/view/ViewGroup;
+    invoke-virtual {v0}, Landroid/view/ViewGroup;->getChildCount()I
+    move-result v1
+    const/4 v2, 0x0
+
+    :child_loop
+    if-ge v2, v1, :not_found
+    invoke-virtual {v0, v2}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+    move-result-object v3
+    invoke-static {v3}, Lcom/anthropic/velaud/velaudlog/VelaudLogHelper;->i(Landroid/view/View;)Landroid/view/View;
+    move-result-object v4
+    if-eqz v4, :next_child
+    return-object v4
+
+    :next_child
+    add-int/lit8 v2, v2, 0x1
+    goto :child_loop
+
+    :found
+    return-object p0
+
+    :not_found
+    const/4 v0, 0x0
+    return-object v0
+.end method
+
+# c(Context): Google giriş düğmesinin hemen üstüne indirme düğmesi ekle
 .method public static c(Landroid/content/Context;)V
-    .locals 8
+    .locals 12
     instance-of v0, p0, Landroid/app/Activity;
     if-eqz v0, :done
     move-object v0, p0
@@ -187,7 +245,7 @@
     invoke-virtual {v1, v2}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
     move-result-object v2
     if-nez v2, :done
-    check-cast v1, Landroid/view/ViewGroup;
+
     new-instance v2, Landroid/widget/Button;
     invoke-direct {v2, v0}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
     const-string v3, "VelaudLog.txt indir"
@@ -199,13 +257,36 @@
     new-instance v3, Lcom/anthropic/velaud/velaudlog/VelaudLogButton;
     invoke-direct {v3, v0}, Lcom/anthropic/velaud/velaudlog/VelaudLogButton;-><init>(Landroid/content/Context;)V
     invoke-virtual {v2, v3}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+
+    # Prefer inserting into the same parent immediately before Google.
+    invoke-static {v1}, Lcom/anthropic/velaud/velaudlog/VelaudLogHelper;->i(Landroid/view/View;)Landroid/view/View;
+    move-result-object v4
+    if-eqz v4, :fallback_position
+    invoke-virtual {v4}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
+    move-result-object v5
+    instance-of v6, v5, Landroid/view/ViewGroup;
+    if-eqz v6, :fallback_position
+    check-cast v5, Landroid/view/ViewGroup;
+    invoke-virtual {v5, v4}, Landroid/view/ViewGroup;->indexOfChild(Landroid/view/View;)I
+    move-result v6
+    if-ltz v6, :fallback_position
+    invoke-virtual {v4}, Landroid/view/View;->getLayoutParams()Landroid/view/ViewGroup$LayoutParams;
+    move-result-object v7
+    invoke-virtual {v5, v6, v2, v7}, Landroid/view/ViewGroup;->addView(ILandroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    goto :done
+
+    :fallback_position
+    check-cast v1, Landroid/view/ViewGroup;
     new-instance v3, Landroid/widget/FrameLayout$LayoutParams;
     const/4 v4, -0x1
     const/4 v5, -0x2
     invoke-direct {v3, v4, v5}, Landroid/widget/FrameLayout$LayoutParams;-><init>(II)V
     const/16 v4, 0x50
     iput v4, v3, Landroid/widget/FrameLayout$LayoutParams;->gravity:I
-    const/16 v4, 0x10
+    invoke-virtual {v1}, Landroid/view/View;->getHeight()I
+    move-result v4
+    const/4 v5, 0x4
+    div-int/2addr v4, v5
     iput v4, v3, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
     invoke-virtual {v1, v2, v3}, Landroid/view/ViewGroup;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
     :done
