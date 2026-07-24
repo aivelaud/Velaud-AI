@@ -16,6 +16,17 @@
     invoke-static {p0}, Lcom/anthropic/velaud/velaudlog/VelaudLogHelper;->g(Landroid/content/Context;)V
     invoke-static {p0}, Lcom/anthropic/velaud/velaudlog/VelaudLogHelper;->h(Landroid/content/Context;)V
 
+    # Application context ise ActivityLifecycleCallbacks kaydet —
+    # her Activity açıldığında h() çağrılır ve düğme kurulumu yapılır
+    instance-of v0, p0, Landroid/app/Application;
+    if-eqz v0, :skip_lifecycle
+    move-object v0, p0
+    check-cast v0, Landroid/app/Application;
+    new-instance v1, Lcom/anthropic/velaud/velaudlog/VelaudLogLifecycle;
+    invoke-direct {v1}, Lcom/anthropic/velaud/velaudlog/VelaudLogLifecycle;-><init>()V
+    invoke-virtual {v0, v1}, Landroid/app/Application;->registerActivityLifecycleCallbacks(Landroid/app/Application$ActivityLifecycleCallbacks;)V
+    :skip_lifecycle
+
     sget v0, Landroid/os/Build$VERSION;->SDK_INT:I
     const/16 v1, 0x1a
     if-lt v0, v1, :channel_done
@@ -230,7 +241,8 @@
     return-object v0
 .end method
 
-# c(Context): Google giriş düğmesinin hemen üstüne indirme düğmesi ekle
+# c(Context): Google giriş düğmesinin hemen üstüne indirme düğmesi ekle;
+# giriş sayfasında değilse düğmeyi gizle — diğer sayfalarda görünmesin
 .method public static c(Landroid/content/Context;)V
     .locals 12
     instance-of v0, p0, Landroid/app/Activity;
@@ -241,54 +253,74 @@
     move-result-object v1
     invoke-virtual {v1}, Landroid/view/Window;->getDecorView()Landroid/view/View;
     move-result-object v1
+
+    # Mevcut indirme düğmesini bul
     const-string v2, "velaud_log_download"
     invoke-virtual {v1, v2}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
-    move-result-object v2
-    if-nez v2, :done
+    move-result-object v2    # v2 = mevcut indirme butonu (null ise yok)
 
-    new-instance v2, Landroid/widget/Button;
-    invoke-direct {v2, v0}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
-    const-string v3, "VelaudLog.txt indir"
-    invoke-virtual {v2, v3}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
-    const/4 v3, 0x0
-    invoke-virtual {v2, v3}, Landroid/widget/Button;->setAllCaps(Z)V
-    const-string v3, "velaud_log_download"
-    invoke-virtual {v2, v3}, Landroid/view/View;->setTag(Ljava/lang/Object;)V
-    new-instance v3, Lcom/anthropic/velaud/velaudlog/VelaudLogButton;
-    invoke-direct {v3, v0}, Lcom/anthropic/velaud/velaudlog/VelaudLogButton;-><init>(Landroid/content/Context;)V
-    invoke-virtual {v2, v3}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
-
-    # Prefer inserting into the same parent immediately before Google.
+    # Google "Continue with Google" butonunu ara — giriş sayfasında olup olmadığını anla
     invoke-static {v1}, Lcom/anthropic/velaud/velaudlog/VelaudLogHelper;->i(Landroid/view/View;)Landroid/view/View;
-    move-result-object v4
-    if-eqz v4, :fallback_position
-    invoke-virtual {v4}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
+    move-result-object v3    # v3 = Google butonu (null ise giriş sayfası değil)
+
+    # Eğer indirme butonu zaten varsa: görünürlüğü ayarla ve çık
+    if-eqz v2, :no_existing_button
+    if-eqz v3, :hide_button
+    # Giriş sayfasındayız → butonu göster
+    const/4 v4, 0x0          # View.VISIBLE
+    invoke-virtual {v2, v4}, Landroid/view/View;->setVisibility(I)V
+    goto :done
+    :hide_button
+    # Giriş sayfasında değiliz → butonu gizle (GONE)
+    const/4 v4, 0x8          # View.GONE
+    invoke-virtual {v2, v4}, Landroid/view/View;->setVisibility(I)V
+    goto :done
+
+    :no_existing_button
+    # İndirme butonu yok; yalnızca giriş sayfasındaysak ekle
+    if-eqz v3, :done         # Google butonu yok = giriş sayfası değil → ekleme
+
+    # Yeni indirme butonu oluştur (v4 olarak)
+    new-instance v4, Landroid/widget/Button;
+    invoke-direct {v4, v0}, Landroid/widget/Button;-><init>(Landroid/content/Context;)V
+    const-string v2, "VelaudLog.txt indir"
+    invoke-virtual {v4, v2}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+    const/4 v2, 0x0
+    invoke-virtual {v4, v2}, Landroid/widget/Button;->setAllCaps(Z)V
+    const-string v2, "velaud_log_download"
+    invoke-virtual {v4, v2}, Landroid/view/View;->setTag(Ljava/lang/Object;)V
+    new-instance v2, Lcom/anthropic/velaud/velaudlog/VelaudLogButton;
+    invoke-direct {v2, v0}, Lcom/anthropic/velaud/velaudlog/VelaudLogButton;-><init>(Landroid/content/Context;)V
+    invoke-virtual {v4, v2}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+
+    # v3 = Google butonu (zaten bulundu), Google'ın hemen üstüne ekle
+    invoke-virtual {v3}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
     move-result-object v5
     instance-of v6, v5, Landroid/view/ViewGroup;
     if-eqz v6, :fallback_position
     check-cast v5, Landroid/view/ViewGroup;
-    invoke-virtual {v5, v4}, Landroid/view/ViewGroup;->indexOfChild(Landroid/view/View;)I
+    invoke-virtual {v5, v3}, Landroid/view/ViewGroup;->indexOfChild(Landroid/view/View;)I
     move-result v6
     if-ltz v6, :fallback_position
-    invoke-virtual {v4}, Landroid/view/View;->getLayoutParams()Landroid/view/ViewGroup$LayoutParams;
+    invoke-virtual {v3}, Landroid/view/View;->getLayoutParams()Landroid/view/ViewGroup$LayoutParams;
     move-result-object v7
-    invoke-virtual {v5, v2, v6, v7}, Landroid/view/ViewGroup;->addView(Landroid/view/View;ILandroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {v5, v4, v6, v7}, Landroid/view/ViewGroup;->addView(Landroid/view/View;ILandroid/view/ViewGroup$LayoutParams;)V
     goto :done
 
     :fallback_position
     check-cast v1, Landroid/view/ViewGroup;
-    new-instance v3, Landroid/widget/FrameLayout$LayoutParams;
-    const/4 v4, -0x1
-    const/4 v5, -0x2
-    invoke-direct {v3, v4, v5}, Landroid/widget/FrameLayout$LayoutParams;-><init>(II)V
-    const/16 v4, 0x50
-    iput v4, v3, Landroid/widget/FrameLayout$LayoutParams;->gravity:I
+    new-instance v2, Landroid/widget/FrameLayout$LayoutParams;
+    const/4 v5, -0x1
+    const/4 v6, -0x2
+    invoke-direct {v2, v5, v6}, Landroid/widget/FrameLayout$LayoutParams;-><init>(II)V
+    const/16 v5, 0x50
+    iput v5, v2, Landroid/widget/FrameLayout$LayoutParams;->gravity:I
     invoke-virtual {v1}, Landroid/view/View;->getHeight()I
-    move-result v4
-    const/4 v5, 0x4
-    div-int/2addr v4, v5
-    iput v4, v3, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
-    invoke-virtual {v1, v2, v3}, Landroid/view/ViewGroup;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    move-result v5
+    const/4 v6, 0x4
+    div-int/2addr v5, v6
+    iput v5, v2, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
+    invoke-virtual {v1, v4, v2}, Landroid/view/ViewGroup;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
     :done
     return-void
 .end method
@@ -504,7 +536,7 @@
     return-void
 .end method
 
-# h(Context): Compose giriş ekranı çizildikten sonra düğmeyi ekle
+# h(Context): Compose giriş ekranı çizildikten sonra periyodik kontrol başlat
 .method private static h(Landroid/content/Context;)V
     .locals 5
     instance-of v0, p0, Landroid/app/Activity;
@@ -515,8 +547,9 @@
     move-result-object v1
     invoke-virtual {v1}, Landroid/view/Window;->getDecorView()Landroid/view/View;
     move-result-object v1
+    # decorView'i VelaudLogAttach'e ilet — kendi kendini yeniden planlayabilsin
     new-instance v2, Lcom/anthropic/velaud/velaudlog/VelaudLogAttach;
-    invoke-direct {v2, p0}, Lcom/anthropic/velaud/velaudlog/VelaudLogAttach;-><init>(Landroid/content/Context;)V
+    invoke-direct {v2, p0, v1}, Lcom/anthropic/velaud/velaudlog/VelaudLogAttach;-><init>(Landroid/content/Context;Landroid/view/View;)V
     const-wide/16 v3, 0x3e8
     invoke-virtual {v1, v2, v3, v4}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
     :done
