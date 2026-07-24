@@ -35,14 +35,8 @@ jobs:
           unzip -o apk_work/base.apk.zip -d orig_dir/
           ls -lh orig_dir/base.apk
 
-          echo ""
           echo "=== Smali decompile ediliyor (binary kaynaklar korunuyor) ==="
-          # -r ile kaynaklar ve binary manifest korunur; böylece uygulamanın
-          # özel resource attribute'ları yeniden derlenmeye çalışılmaz.
           apktool d -r -f orig_dir/base.apk -o work/
-
-          echo ""
-          echo "=== work/ içeriği ==="
           ls work/
           echo "Smali dosya sayısı: $(find work/smali* -name '*.smali' 2>/dev/null | wc -l)"
 
@@ -51,14 +45,12 @@ jobs:
           echo "=== Manifest ayrı decode ediliyor ==="
           apktool d -s -f orig_dir/base.apk -o manifest_work/
           file manifest_work/AndroidManifest.xml
+          echo "=== Mevcut Application class ==="
+          grep -o 'android:name="[^"]*Application[^"]*"' manifest_work/AndroidManifest.xml | head -5 || true
 
-      - name: Manifest class isimlerini normalize et (velaud namespace'e sabitle)
+      - name: Split metadata kaldır (standalone APK)
         run: |
-          echo "=== Manifest class isimleri normalize ediliyor ==="
-          # apktool decode sırasında kısa class isimlerini (örn. .mainactivity.MainActivity)
-          # package ile expand eder. Eğer orijinal APK package'ı com.anthropic.claude ise
-          # class isimleri com.anthropic.claude.* olur ama DEX'te com.anthropic.velaud.* var.
-          # Bu adım tüm class referanslarını velaud'a normalleştirir (package attribute hariç).
+          echo "=== Split metadata kaldırılıyor ==="
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -66,177 +58,83 @@ jobs:
           manifest = Path("manifest_work/AndroidManifest.xml")
           text = manifest.read_text(encoding="utf-8")
 
-          # android:name="com.anthropic.claude.XXX" → com.anthropic.velaud.XXX
-          # Sadece android:name attribute'larındaki class isimlerini değiştir,
-          # package="..." attribute'unu dokunma.
-          def fix_classname(m):
-              attr = m.group(0)
-              # package= attribute'unu değiştirme
-              if attr.startswith('package='):
-                  return attr
-              return attr.replace('com.anthropic.claude.', 'com.anthropic.velaud.')
-
-          # android:name, android:targetActivity gibi class referanslarını düzelt
+          # Split attribute ve meta-data kaldır
+          text = re.sub(r'\s+android:(?:requiredSplitTypes|splitTypes)="[^"]*"', '', text)
           text = re.sub(
-              r'android:name="com\.anthropic\.claude\.[^"]*"',
-              lambda m: m.group(0).replace('com.anthropic.claude.', 'com.anthropic.velaud.'),
-              text
-          )
-          text = re.sub(
-              r'android:targetActivity="com\.anthropic\.claude\.[^"]*"',
-              lambda m: m.group(0).replace('com.anthropic.claude.', 'com.anthropic.velaud.'),
-              text
-          )
-
-          # The original Application class has a different class name, not just a
-          # different package. Point the manifest at the patched DEX class.
-          text = text.replace(
-              'com.anthropic.velaud.application.ClaudeApplication',
-              'com.anthropic.velaud.application.VelaudApplication'
+              r'\s*<meta-data\b[^>]*android:name="com\.android\.vending\.splits(?:\.required)?"[^>]*/>', '', text
           )
 
           manifest.write_text(text, encoding="utf-8")
-          print("✓ Class isimleri velaud namespace'e normalize edildi")
+          print("✓ Split metadata temizlendi")
+
+          # Package com.anthropic.claude olmalı
+          content = manifest.read_text()
+          assert 'com.anthropic.claude' in content, "Package eksik"
+          print("✓ Manifest doğrulandı: package=com.anthropic.claude")
           PY
 
-      - name: Manifest'e ek activity kayıtlarını ekle
+          # splits0.xml binary resource da kaldır
+          rm -f work/res/xml/splits0.xml && echo "✓ splits0.xml kaldırıldı" || echo "splits0.xml zaten yok"
+
+      - name: Smali bypass patchlerini uygula
         run: |
-          echo "=== Ek Activity kayıtları manifest'e ekleniyor ==="
-          python3 - <<'PY'
-          from pathlib import Path
+          echo "=== Bypass patchleri uygulanıyor ==="
+          echo "NOT: Orijinal ClaudeApplication korunuyor — crash döngüsü riski yok"
 
-          manifest = Path("manifest_work/AndroidManifest.xml")
-          text = manifest.read_text(encoding="utf-8")
-          marker = "</application>"
-          if marker not in text:
-              raise SystemExit("AndroidManifest.xml içinde application kapanışı bulunamadı")
-
-          additions = []
-
-          # VelaudLogActivity — velaud namespace (DEX'teki gerçek class adı)
-          log_activity = "com.anthropic.velaud.velaudlog.VelaudLogActivity"
-          if log_activity not in text:
-              additions.append(
-                  f'        <activity android:exported="false" '
-                  f'android:name="{log_activity}" '
-                  f'android:label="Velaud Loglar&#x131;"/>'
-              )
-
-          # CrashActivity — crash olduğunda log ekranı gösterir
-          crash_activity = "com.anthropic.velaud.crash.CrashActivity"
-          if crash_activity not in text:
-              additions.append(
-                  f'        <activity android:exported="false" '
-                  f'android:name="{crash_activity}" '
-                  f'android:label="Crash Log" '
-                  f'android:theme="@style/Theme.Claude"/>'
-              )
-
-          if additions:
-              insert = "\n".join(additions)
-              text = text.replace(marker, insert + "\n" + marker, 1)
-              manifest.write_text(text, encoding="utf-8")
-              print(f"✓ {len(additions)} activity eklendi")
-          else:
-              print("✓ Tüm activity kayıtları zaten mevcut")
-          PY
-
-      - name: Manifest doğrula
-        working-directory: manifest_work
-        run: |
-          echo "=== AndroidManifest.xml kontrolleri ==="
-          grep -i "package" AndroidManifest.xml | head -3 || true
-
-          # VelaudApplication velaud namespace'inde olmalı (DEX'teki gerçek class)
-          grep -q 'com.anthropic.velaud.application.VelaudApplication' AndroidManifest.xml \
-            && echo "✓ VelaudApplication (velaud) mevcut" \
-            || { echo "✗ VelaudApplication bulunamadı"; exit 1; }
-
-          # MainActivity velaud namespace'inde olmalı
-          grep -q 'com.anthropic.velaud.mainactivity.MainActivity' AndroidManifest.xml \
-            && echo "✓ MainActivity (velaud) mevcut" \
-            || echo "✗ UYARI: MainActivity bulunamadı"
-
-          # VelaudLogActivity eklendi mi?
-          grep -q 'com.anthropic.velaud.velaudlog.VelaudLogActivity' AndroidManifest.xml \
-            && echo "✓ VelaudLogActivity eklendi" \
-            || echo "✗ UYARI: VelaudLogActivity eksik"
-
-          # CrashActivity eklendi mi?
-          grep -q 'com.anthropic.velaud.crash.CrashActivity' AndroidManifest.xml \
-            && echo "✓ CrashActivity eklendi" \
-            || echo "✗ UYARI: CrashActivity eksik"
-
-      - name: Smali patchlerini uygula (velaud namespace — DEX class adlarıyla uyumlu)
-        run: |
-          echo "=== Patch dosyaları uygulanıyor (velaud namespace) ==="
-          # ÖNEMLI: Tüm patchler com/anthropic/velaud/ altına kopyalanır.
-          # Manifest'teki class referansları velaud namespace'ini kullandığından
-          # class adlarını claude'a rename etmek ClassNotFoundException'a yol açar.
-
-          # Rate limit bypass (b3d)
+          # --- Obfuscated root-level bypass patch'leri ---
           cp apk_work/decompiled/smali/b3d.smali work/smali/ \
-            && echo "✓ b3d.smali" || echo "✗ b3d.smali bulunamadı"
+            && echo "✓ b3d.smali (rate limit bypass)" || echo "✗ b3d.smali bulunamadı"
 
-          # ExceedsLimit bypass (ig3)
           cp apk_work/decompiled/smali/ig3.smali work/smali/ \
-            && echo "✓ ig3.smali" || echo "✗ ig3.smali bulunamadı"
+            && echo "✓ ig3.smali (limit bypass)" || echo "✗ ig3.smali bulunamadı"
 
-          # BellConfig
           cp apk_work/decompiled/smali/BellConfig.smali work/smali/ \
             && echo "✓ BellConfig.smali" || echo "✗ BellConfig.smali bulunamadı"
 
-          # Organization - rate_limit_tier = 'max'
-          mkdir -p work/smali/com/anthropic/velaud/api/account/
-          cp apk_work/decompiled/smali/com/anthropic/velaud/api/account/Organization.smali \
-             work/smali/com/anthropic/velaud/api/account/ \
-            && echo "✓ Organization.smali" || echo "✗ Organization.smali bulunamadı"
+          # --- Organization patch: rate_limit_tier = 'max' ---
+          # Orijinal class com.anthropic.claude.api.account.Organization'dır.
+          # Decompile edilen dosyayı bul ve patch ile DEĞİŞTİR (ek değil!).
+          ORG_TARGET=$(find work/smali* -type f -name 'Organization.smali' \
+            -path '*/anthropic/claude/api/account/*' | head -1)
+          if [ -n "$ORG_TARGET" ]; then
+            sed 's|com/anthropic/velaud/|com/anthropic/claude/|g
+                 s|com\.anthropic\.velaud\.|com.anthropic.claude.|g' \
+              apk_work/decompiled/smali/com/anthropic/velaud/api/account/Organization.smali \
+              > "$ORG_TARGET"
+            echo "✓ Organization.smali patched: $ORG_TARGET"
+          else
+            # Fallback: smali/ altına ekle
+            mkdir -p work/smali/com/anthropic/claude/api/account/
+            sed 's|com/anthropic/velaud/|com/anthropic/claude/|g
+                 s|com\.anthropic\.velaud\.|com.anthropic.claude.|g' \
+              apk_work/decompiled/smali/com/anthropic/velaud/api/account/Organization.smali \
+              > work/smali/com/anthropic/claude/api/account/Organization.smali
+            echo "✓ Organization.smali fallback olarak smali/ altına eklendi"
+          fi
 
-          # File upload limit 10GB
-          mkdir -p "work/smali/com/anthropic/velaud/chat/input/files/"
-          cp "apk_work/decompiled/smali/com/anthropic/velaud/chat/input/files/a.smali" \
-             "work/smali/com/anthropic/velaud/chat/input/files/" \
-            && echo "✓ files/a.smali" || echo "✗ files/a.smali bulunamadı"
-
-          # Claude Log Görücü
-          mkdir -p "work/smali/com/anthropic/velaud/velaudlog/"
-          cp "apk_work/decompiled/smali/com/anthropic/velaud/velaudlog/VelaudLogHelper.smali" \
-             "work/smali/com/anthropic/velaud/velaudlog/" \
-            && echo "✓ VelaudLogHelper.smali" || echo "✗ VelaudLogHelper.smali bulunamadı"
-          cp "apk_work/decompiled/smali/com/anthropic/velaud/velaudlog/VelaudLogActivity.smali" \
-             "work/smali/com/anthropic/velaud/velaudlog/" \
-            && echo "✓ VelaudLogActivity.smali" || echo "✗ VelaudLogActivity.smali bulunamadı"
-          cp "apk_work/decompiled/smali/com/anthropic/velaud/velaudlog/VelaudLogButton.smali" \
-             "work/smali/com/anthropic/velaud/velaudlog/" \
-            && echo "✓ VelaudLogButton.smali" || echo "✗ VelaudLogButton.smali bulunamadı"
-          cp "apk_work/decompiled/smali/com/anthropic/velaud/velaudlog/VelaudLogAttach.smali" \
-             "work/smali/com/anthropic/velaud/velaudlog/" \
-            && echo "✓ VelaudLogAttach.smali" || echo "✗ VelaudLogAttach.smali bulunamadı"
-          cp "apk_work/decompiled/smali/com/anthropic/velaud/velaudlog/VelaudLogRecorder.smali" \
-             "work/smali/com/anthropic/velaud/velaudlog/" \
-            && echo "✓ VelaudLogRecorder.smali" || echo "✗ VelaudLogRecorder.smali bulunamadı"
-
-          # Crash handler
-          mkdir -p "work/smali/com/anthropic/velaud/crash/"
-          cp "apk_work/decompiled/smali/com/anthropic/velaud/crash/CrashHandler.smali" \
-             "work/smali/com/anthropic/velaud/crash/" \
-            && echo "✓ CrashHandler.smali" || echo "✗ CrashHandler.smali bulunamadı"
-
-          # Application — manifestte başlatılan gerçek patched class
-          mkdir -p "work/smali/com/anthropic/velaud/application/"
-          cp "apk_work/decompiled/smali/com/anthropic/velaud/application/VelaudApplication.smali" \
-             "work/smali/com/anthropic/velaud/application/" \
-            && echo "✓ VelaudApplication.smali" || { echo "✗ VelaudApplication.smali bulunamadı"; exit 1; }
-
-          # MainActivity — log bildirimini başlatan enjeksiyon (orijinalin üzerine yazar)
-          mkdir -p "work/smali/com/anthropic/velaud/mainactivity/"
-          cp "apk_work/decompiled/smali/com/anthropic/velaud/mainactivity/MainActivity.smali" \
-             "work/smali/com/anthropic/velaud/mainactivity/" \
-            && echo "✓ MainActivity.smali (log enjeksiyonu)" || echo "✗ MainActivity.smali bulunamadı"
+          # --- File upload limit patch (10 GB) ---
+          # Orijinal class com.anthropic.claude.chat.input.files.a
+          FILES_TARGET=$(find work/smali* -type f -name 'a.smali' \
+            -path '*/anthropic/claude/chat/input/files/*' | head -1)
+          if [ -n "$FILES_TARGET" ]; then
+            sed 's|com/anthropic/velaud/|com/anthropic/claude/|g
+                 s|com\.anthropic\.velaud\.|com.anthropic.claude.|g' \
+              "apk_work/decompiled/smali/com/anthropic/velaud/chat/input/files/a.smali" \
+              > "$FILES_TARGET"
+            echo "✓ files/a.smali patched: $FILES_TARGET"
+          else
+            mkdir -p work/smali/com/anthropic/claude/chat/input/files/
+            sed 's|com/anthropic/velaud/|com/anthropic/claude/|g
+                 s|com\.anthropic\.velaud\.|com.anthropic.claude.|g' \
+              "apk_work/decompiled/smali/com/anthropic/velaud/chat/input/files/a.smali" \
+              > work/smali/com/anthropic/claude/chat/input/files/a.smali
+            echo "✓ files/a.smali fallback olarak smali/ altına eklendi"
+          fi
 
           echo ""
           echo "=== Patch özeti ==="
-          echo "Velaud smali sayısı (patch sonrası): $(find work/smali/com/anthropic/velaud -name '*.smali' 2>/dev/null | wc -l)"
+          echo "Velaud class enjekte edilmedi. Orijinal ClaudeApplication + MainActivity korunuyor."
+          echo "Patch edilen: b3d, ig3, BellConfig, Organization, files/a"
 
       - name: ARM64 native lib ekle
         run: |
@@ -246,39 +144,15 @@ jobs:
           echo "Eklenen lib'ler:"
           ls -lh work/lib/arm64-v8a/
 
-      - name: Split metadata kaldır (standalone APK)
-        run: |
-          echo "=== Split metadata kaldırılıyor ==="
-          node <<'NODE_SCRIPT'
-          const fs = require('fs');
-          const files = ['manifest_work/AndroidManifest.xml'];
-          for (const file of files) {
-            if (!fs.existsSync(file)) continue;
-            let text = fs.readFileSync(file, 'utf8');
-            text = text.replace(/\s+android:(?:requiredSplitTypes|splitTypes)="[^"]*"/g, '');
-            text = text.replace(/\s*<meta-data\b[^>]*android:name="com\.android\.vending\.splits(?:\.required)?"[^>]*\/>/g, '');
-            fs.writeFileSync(file, text);
-            console.log('✓ Split metadata temizlendi: ' + file);
-          }
-          const splitResource = 'work/res/xml/splits0.xml';
-          if (fs.existsSync(splitResource)) {
-            fs.unlinkSync(splitResource);
-            console.log('✓ ' + splitResource + ' kaldırıldı');
-          }
-          NODE_SCRIPT
-
-      - name: apktool.yml güncelle (renameManifestPackage + doNotCompress)
+      - name: apktool.yml güncelle
         working-directory: work
         run: |
           echo "=== Mevcut apktool.yml ==="
           cat apktool.yml
 
-          # renameManifestPackage: package attribute'unu com.anthropic.claude yapar.
-          # Dikkat: Sadece manifest package attribute'unu değiştirir, class isimlerini değil.
-          # Class isimleri velaud namespace'inde kalır (DEX ile uyumlu).
           if grep -q "renameManifestPackage: null" apktool.yml; then
             sed -i 's/renameManifestPackage: null/renameManifestPackage: com.anthropic.claude/' apktool.yml
-            echo "→ renameManifestPackage: null → com.anthropic.claude"
+            echo "→ renameManifestPackage ayarlandı"
           elif grep -q "renameManifestPackage:" apktool.yml; then
             sed -i 's/renameManifestPackage:.*/renameManifestPackage: com.anthropic.claude/' apktool.yml
             echo "→ renameManifestPackage güncellendi"
@@ -291,14 +165,13 @@ jobs:
 
           if ! grep -q "^doNotCompress:" apktool.yml; then
             printf '\ndoNotCompress:\n- dex\n- so\n- resources.arsc\n' >> apktool.yml
-            echo "→ doNotCompress listesi eklendi"
+            echo "→ doNotCompress eklendi"
           else
             grep -q "^- dex" apktool.yml || sed -i '/^doNotCompress:/a - dex' apktool.yml
             grep -q "^- so"  apktool.yml || sed -i '/^doNotCompress:/a - so'  apktool.yml
             echo "→ doNotCompress güncellendi"
           fi
 
-          echo ""
           echo "=== Güncellenmiş apktool.yml ==="
           cat apktool.yml
 
@@ -306,10 +179,7 @@ jobs:
         run: |
           echo "=== APK build ediliyor ==="
           apktool b work/ -o claude-unsigned.apk
-
-          echo ""
           ls -lh claude-unsigned.apk
-
           echo ""
           echo "=== DEX + .so compression kontrolü ==="
           unzip -v claude-unsigned.apk | grep -E "\.dex|\.so|resources\.arsc"
@@ -317,23 +187,15 @@ jobs:
       - name: Binary manifesti APK'ya uygula
         run: |
           echo "=== Manifest binary XML'e çevriliyor ==="
-          # manifest_work/AndroidManifest.xml:
-          #   - package="com.anthropic.claude" (apktool tarafından decode edilen orijinal)
-          #   - class isimleri com.anthropic.velaud.* (normalize adımında düzeltildi)
-          # Bu, DEX'teki gerçek class isimleriyle uyumludur.
           unzip -p apk_work/apktool.jar prebuilt/linux/aapt_64 > aapt
           chmod +x aapt
+
           FRAMEWORK=$(find "$HOME/.local/share/apktool/framework" -name 1.apk -print -quit)
-          if [ -z "$FRAMEWORK" ]; then
-            echo "Apktool framework 1.apk bulunamadı"
-            exit 1
-          fi
+          [ -n "$FRAMEWORK" ] || { echo "✗ Framework 1.apk bulunamadı"; exit 1; }
 
           VERSION_CODE=$(grep "versionCode:" apk_work/decompiled/apktool.yml | awk '{print $2}')
           VERSION_NAME=$(grep "versionName:" apk_work/decompiled/apktool.yml | awk '{print $2}')
 
-          # Generate a fresh binary manifest and replace the APK entry explicitly.
-          # aapt package -u can retain the old application class from the APK.
           ./aapt package -f \
             -M manifest_work/AndroidManifest.xml \
             -I "$FRAMEWORK" \
@@ -348,36 +210,44 @@ jobs:
           mkdir -p manifest_replace
           unzip -p manifest-only.apk AndroidManifest.xml > manifest_replace/AndroidManifest.xml
           test -s manifest_replace/AndroidManifest.xml || { echo "✗ Binary manifest üretilemedi"; exit 1; }
+
           ./aapt remove claude-unsigned.apk AndroidManifest.xml || true
           (cd manifest_replace && zip -q -j ../claude-unsigned.apk AndroidManifest.xml)
           rm -rf manifest_replace manifest-only.apk
 
-          # Manifest doğrula: package com.anthropic.claude olmalı
+          # --- Doğrulamalar ---
           ./aapt dump badging claude-unsigned.apk | grep -q "name='com.anthropic.claude'" \
-            && echo "✓ APK package: com.anthropic.claude" \
-            || (echo "✗ HATA: Package adı yanlış!" && exit 1)
+            && echo "✓ Package: com.anthropic.claude" \
+            || { echo "✗ Package hatası"; exit 1; }
 
           MANIFEST_TREE=$(./aapt dump xmltree claude-unsigned.apk AndroidManifest.xml)
-          printf '%s\n' "$MANIFEST_TREE" | grep -q 'com.anthropic.velaud.application.VelaudApplication' \
-            && echo "✓ VelaudApplication class (velaud) doğrulandı" \
-            || { echo "✗ Application class manifest/DEX ile eşleşmiyor"; exit 1; }
-          printf '%s\n' "$MANIFEST_TREE" | grep -q 'com.anthropic.velaud.mainactivity.MainActivity' \
-            && echo "✓ MainActivity class (velaud) doğrulandı" \
-            || { echo "✗ MainActivity manifest/DEX ile eşleşmiyor"; exit 1; }
 
+          # Orijinal ClaudeApplication kullanılıyor olmalı
+          printf '%s\n' "$MANIFEST_TREE" | grep -q 'ClaudeApplication' \
+            && echo "✓ ClaudeApplication manifest'te mevcut" \
+            || { echo "✗ ClaudeApplication manifest'te bulunamadı"; exit 1; }
+
+          # ClaudeApplication DEX'te olmalı
           FOUND_APP=0
-          FOUND_MAIN=0
           for DEX in $(unzip -Z1 claude-unsigned.apk | grep -E "^classes[0-9]*\.dex$"); do
-            unzip -p claude-unsigned.apk "$DEX" | strings | grep -q 'Lcom/anthropic/velaud/application/VelaudApplication;' && FOUND_APP=1 || true
-            unzip -p claude-unsigned.apk "$DEX" | strings | grep -q 'Lcom/anthropic/velaud/mainactivity/MainActivity;' && FOUND_MAIN=1 || true
+            unzip -p claude-unsigned.apk "$DEX" | strings \
+              | grep -q 'Lcom/anthropic/claude/application/ClaudeApplication;' && FOUND_APP=1 || true
           done
-          test "$FOUND_APP" = 1 || { echo "✗ VelaudApplication DEX'te bulunamadı"; exit 1; }
-          test "$FOUND_MAIN" = 1 || { echo "✗ MainActivity DEX'te bulunamadı"; exit 1; }
-          echo "✓ Manifest ve DEX class eşleşmesi doğrulandı"
+          test "$FOUND_APP" = 1 \
+            && echo "✓ ClaudeApplication DEX'te mevcut" \
+            || { echo "✗ ClaudeApplication DEX'te bulunamadı"; exit 1; }
 
-          printf '%s\n' "$MANIFEST_TREE" | grep -q 'com.anthropic.velaud.velaudlog.VelaudLogActivity' \
-            && echo "✓ VelaudLogActivity doğrulandı" \
-            || echo "⚠ VelaudLogActivity binary manifest'te bulunamadı"
+          # VelaudApplication olmamalı (crash döngüsü önlemi)
+          if printf '%s\n' "$MANIFEST_TREE" | grep -q 'VelaudApplication'; then
+            echo "✗ VelaudApplication manifest'te kaldı — hata"; exit 1
+          fi
+          echo "✓ VelaudApplication yok (crash döngüsü riski ortadan kalktı)"
+
+          # Split metadata olmamalı
+          if printf '%s\n' "$MANIFEST_TREE" | grep -Eq 'requiredSplitTypes|splitTypes|com.android.vending.splits'; then
+            echo "✗ Split metadata hâlâ manifest'te"; exit 1
+          fi
+          echo "✓ Standalone: split metadata yok"
 
       - name: Keystore oluştur
         run: |
@@ -385,49 +255,46 @@ jobs:
             -keystore claude.keystore \
             -alias claude \
             -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass velaud123 -keypass velaud123 \
+            -storepass claude123 -keypass claude123 \
             -dname "CN=Claude, OU=Dev, O=Claude, L=Istanbul, ST=Istanbul, C=TR"
 
-      - name: Zipalign ve Sign (standalone APK)
+      - name: Zipalign ve Sign
         run: |
           BT=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
           echo "Build tools: $BT"
 
-          # -p flag: .so dosyalarını 4096 byte (sayfa) hizasına getirir
-          # extractNativeLibs=false için ZORUNLU — olmadan siyah/gri ekran
+          # -p: .so dosyalarını 4096-byte sayfa hizasına getirir (extractNativeLibs için zorunlu)
           $BT/zipalign -p -f -v 4 claude-unsigned.apk claude-aligned.apk
 
           $BT/apksigner sign \
             --ks claude.keystore \
             --ks-key-alias claude \
-            --ks-pass pass:velaud123 \
-            --key-pass pass:velaud123 \
+            --ks-pass pass:claude123 \
+            --key-pass pass:claude123 \
             --out claude-standalone-signed.apk \
             claude-aligned.apk
 
           echo ""
-          echo "=== İmzalı base APK ==="
+          echo "=== İmzalı APK ==="
           ls -lh claude-standalone-signed.apk
           $BT/apksigner verify --verbose claude-standalone-signed.apk
 
           echo ""
-          echo "=== Final APK package name ==="
+          echo "=== Final package ==="
           $BT/aapt dump badging claude-standalone-signed.apk | grep "package:"
           $BT/aapt dump badging claude-standalone-signed.apk | grep -q "name='com.anthropic.claude'" \
-            && echo "✓ Package doğrulandı" || (echo "✗ Package hatası" && exit 1)
+            && echo "✓ Package doğrulandı" \
+            || { echo "✗ Package hatası"; exit 1; }
 
-          echo "=== Standalone split metadata doğrulaması ==="
+          echo "=== Standalone doğrulama ==="
           XMLTREE="$($BT/aapt dump xmltree claude-standalone-signed.apk AndroidManifest.xml)"
           if printf '%s\n' "$XMLTREE" | grep -Eq 'requiredSplitTypes|splitTypes|com.android.vending.splits'; then
-            echo "✗ Standalone APK hâlâ split metadata içeriyor"
-            printf '%s\n' "$XMLTREE" | grep -E -C 2 'requiredSplitTypes|splitTypes|com.android.vending.splits' || true
-            exit 1
+            echo "✗ Split metadata var"; exit 1
           fi
           if unzip -l claude-standalone-signed.apk | grep -q 'res/xml/splits0.xml'; then
-            echo "✗ Standalone APK hâlâ splits0.xml içeriyor"
-            exit 1
+            echo "✗ splits0.xml hâlâ APK içinde"; exit 1
           fi
-          echo "✓ Standalone APK split metadata içermiyor"
+          echo "✓ Standalone APK doğrulandı"
 
       - name: Get version info
         id: version
@@ -436,12 +303,11 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Version: ${VERSION} | Run: ${{ github.run_number }}"
 
-      - name: Upload APK artifacts
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: Claude-v${{ steps.version.outputs.version }}-run${{ github.run_number }}
-          path: |
-            claude-standalone-signed.apk
+          path: claude-standalone-signed.apk
           retention-days: 30
 
       - name: Create GitHub Release
@@ -463,22 +329,21 @@ jobs:
             - Herkes otomatik MAX planda
             - Ödeme sistemi kaldırıldı
             - ARM64 native lib'leri standalone APK içine gömüldü
-            - Dil, yoğunluk ve ABI split gereksinimleri kaldırıldı
-            - **Crash düzeltmesi:** Manifest class isimleri DEX ile uyumlu hale getirildi
-            - CrashActivity manifest'e eklendi (crash logları görünür)
+            - Split gereksinimleri kaldırıldı
+            - **Crash döngüsü düzeltildi:** Orijinal ClaudeApplication kullanılıyor
+            - Koin / Sentry / tüm başlatma orijinal gibi çalışıyor
+            - "velaud" wrapper sınıfları kaldırıldı
 
             ---
 
             ### 📥 Kurulum
 
-            **Yalnızca `claude-standalone-signed.apk` dosyasını kur. Bu APK standalone'dır ve ARM64 lib'lerini içerir.**
+            **Yalnızca `claude-standalone-signed.apk` dosyasını kur. Başka dosya gerekmez.**
 
-            > ⚠️ Ayarlar → Güvenlik → "Bilinmeyen kaynaklardan yükleme" aktif olmalı.
-            > ⚠️ Eski `base.apk` ve `split_config.*.apk` dosyalarını bu dosyayla birlikte kullanmayın.
-            > ⚠️ Önceki farklı imzalı kurulumu kaldırmanız gerekebilir; paket adı: `com.anthropic.claude`.
+            > ⚠️ Önceki farklı imzalı kurulumu önce kaldırın (paket: `com.anthropic.claude`)
+            > ⚠️ Ayarlar → Güvenlik → Bilinmeyen kaynaklardan yükleme etkinleştirilmeli
 
-          files: |
-            claude-standalone-signed.apk
+          files: claude-standalone-signed.apk
           draft: false
           prerelease: false
           fail_on_unmatched_files: false
