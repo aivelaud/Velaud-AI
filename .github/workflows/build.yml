@@ -147,6 +147,61 @@ jobs:
           print(f"✓ Organization.smali: getRate_limit_tier() → 'max' ({path})")
           PY
 
+          # --- Organization: getRate_limit_upsell() → UNKNOWN (upsell dialog'larını kaldır) ---
+          python3 - "$ORG_TARGET" <<'PY'
+          import sys, re
+          path = sys.argv[1]
+          text = open(path, encoding='utf-8').read()
+          pattern = re.compile(
+              r'(\.method public final getRate_limit_upsell\(\)Lcom/anthropic/claude/api/account/RateLimitUpsell;\s*\n)'
+              r'.*?'
+              r'(\.end method)',
+              re.DOTALL
+          )
+          replacement = (
+              r'\g<1>'
+              '    .locals 1\n\n'
+              '    sget-object v0, Lcom/anthropic/claude/api/account/RateLimitUpsell;->UNKNOWN:Lcom/anthropic/claude/api/account/RateLimitUpsell;\n\n'
+              '    return-object v0\n'
+              r'\g<2>'
+          )
+          new_text, n = pattern.subn(replacement, text)
+          if n == 0:
+              print("⚠ getRate_limit_upsell() metodu bulunamadı — atlanıyor")
+          else:
+              open(path, 'w', encoding='utf-8').write(new_text)
+              print(f"✓ Organization.smali: getRate_limit_upsell() → UNKNOWN ({path})")
+          PY
+
+          # --- RateLimit limit bypass: ExceedsLimit + ApproachingLimit → RateLimit directly ---
+          # instance-of ... RateLimit$Limited kontrollerini bypass etmek için
+          # ExceedsLimit ve ApproachingLimit artık Limited yerine RateLimit implement eder.
+          # Bu sayede tüm limit engeli UI kodu (instance-of Limited check'leri) atlanır.
+          python3 - <<'PY'
+          from pathlib import Path
+
+          targets = [
+              ("smali*/com/anthropic/claude/api/common/RateLimit$ExceedsLimit.smali",    "ExceedsLimit"),
+              ("smali*/com/anthropic/claude/api/common/RateLimit$ApproachingLimit.smali", "ApproachingLimit"),
+          ]
+          for pattern, label in targets:
+              matches = list(Path("work").glob(pattern))
+              if not matches:
+                  print(f"⚠ {label}.smali bulunamadı — atlanıyor")
+                  continue
+              for f in matches:
+                  text = f.read_text(encoding="utf-8")
+                  new_text = text.replace(
+                      ".implements Lcom/anthropic/claude/api/common/RateLimit$Limited;",
+                      ".implements Lcom/anthropic/claude/api/common/RateLimit;"
+                  )
+                  if new_text != text:
+                      f.write_text(new_text, encoding="utf-8")
+                      print(f"✓ {label}: RateLimit$Limited → RateLimit ({f})")
+                  else:
+                      print(f"⚠ {label}: değişiklik yok ({f})")
+          PY
+
           # --- File upload limit patch (10 GB) ---
           # Orijinal class com.anthropic.claude.chat.input.files.a
           FILES_TARGET=$(find work/smali* -type f -name 'a.smali' \
