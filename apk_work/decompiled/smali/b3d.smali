@@ -1985,6 +1985,9 @@
     return-void
 
     :cond_3
+    # velaud: ExceedsLimit'i hic isleme, dogrudan cleanup'a git
+    goto :cond_c
+
     :try_start_1
     instance-of v0, p1, Lcom/anthropic/velaud/api/common/RateLimit$Limited;
 
