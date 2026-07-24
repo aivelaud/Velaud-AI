@@ -25,10 +25,11 @@
     const-string v2, "Velaud Logları"
     const/4 v3, 0x3
     invoke-direct {v0, v1, v2, v3}, Landroid/app/NotificationChannel;-><init>(Ljava/lang/String;Ljava/lang/CharSequence;I)V
-    const-string v1, "android.app.NotificationManager"
+    const-string v1, "notification"
     invoke-virtual {p0, v1}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
     move-result-object v1
     check-cast v1, Landroid/app/NotificationManager;
+    if-eqz v1, :channel_done
     invoke-virtual {v1, v0}, Landroid/app/NotificationManager;->createNotificationChannel(Landroid/app/NotificationChannel;)V
 
     :channel_done
@@ -77,12 +78,14 @@
     move-result-object v0
     invoke-virtual {v0}, Landroid/app/Notification$Builder;->build()Landroid/app/Notification;
     move-result-object v6
-    const-string v1, "android.app.NotificationManager"
+    const-string v1, "notification"
     invoke-virtual {p0, v1}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
     move-result-object v1
     check-cast v1, Landroid/app/NotificationManager;
+    if-eqz v1, :notification_done
     const/16 v2, 0x5641
     invoke-virtual {v1, v2, v6}, Landroid/app/NotificationManager;->notify(ILandroid/app/Notification;)V
+    :notification_done
     return-void
 .end method
 
