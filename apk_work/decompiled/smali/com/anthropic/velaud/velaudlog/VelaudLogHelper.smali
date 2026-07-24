@@ -272,7 +272,7 @@
     goto :done
     :hide_button
     # Giriş sayfasında değiliz → butonu gizle (GONE)
-    const/4 v4, 0x8          # View.GONE
+    const/16 v4, 0x8          # View.GONE
     invoke-virtual {v2, v4}, Landroid/view/View;->setVisibility(I)V
     goto :done
 
