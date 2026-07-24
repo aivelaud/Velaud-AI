@@ -110,25 +110,42 @@ jobs:
           fi
 
           # --- Organization patch: rate_limit_tier = 'max' ---
-          # Orijinal class com.anthropic.claude.api.account.Organization'dır.
-          # Decompile edilen dosyayı bul ve patch ile DEĞİŞTİR (ek değil!).
+          # Orijinal Organization sınıfı olduğu gibi korunur; yalnızca
+          # getRate_limit_tier() metodu hedefli olarak "max" döndürecek şekilde
+          # değiştirilir. Tüm dosyayı velaud versiyonuyla değiştirmek
+          # getClaude_ai_bootstrap_models_config() gibi orijinal metodları
+          # silerek NoSuchMethodError'a yol açıyordu.
           ORG_TARGET=$(find work/smali* -type f -name 'Organization.smali' \
             -path '*/anthropic/claude/api/account/*' | head -1)
-          if [ -n "$ORG_TARGET" ]; then
-            sed 's|com/anthropic/velaud/|com/anthropic/claude/|g
-                 s|com\.anthropic\.velaud\.|com.anthropic.claude.|g' \
-              apk_work/decompiled/smali/com/anthropic/velaud/api/account/Organization.smali \
-              > "$ORG_TARGET"
-            echo "✓ Organization.smali patched: $ORG_TARGET"
-          else
-            # Fallback: smali/ altına ekle
-            mkdir -p work/smali/com/anthropic/claude/api/account/
-            sed 's|com/anthropic/velaud/|com/anthropic/claude/|g
-                 s|com\.anthropic\.velaud\.|com.anthropic.claude.|g' \
-              apk_work/decompiled/smali/com/anthropic/velaud/api/account/Organization.smali \
-              > work/smali/com/anthropic/claude/api/account/Organization.smali
-            echo "✓ Organization.smali fallback olarak smali/ altına eklendi"
+          if [ -z "$ORG_TARGET" ]; then
+            echo "✗ Organization.smali bulunamadı"; exit 1
           fi
+          python3 - "$ORG_TARGET" <<'PY'
+          import sys, re
+          path = sys.argv[1]
+          text = open(path, encoding='utf-8').read()
+          # getRate_limit_tier() metodunun gövdesini "max" döndürecek şekilde değiştir.
+          # Pattern: metod başlığından .end method'a kadar olan her şeyi yakala.
+          pattern = re.compile(
+              r'(\.method public final getRate_limit_tier\(\)Ljava/lang/String;\s*\n)'
+              r'.*?'
+              r'(\.end method)',
+              re.DOTALL
+          )
+          replacement = (
+              r'\g<1>'
+              '    .locals 1\n\n'
+              '    const-string v0, "max"\n\n'
+              '    return-object v0\n'
+              r'\g<2>'
+          )
+          new_text, n = pattern.subn(replacement, text)
+          if n == 0:
+              print("✗ getRate_limit_tier() metodu bulunamadı")
+              sys.exit(1)
+          open(path, 'w', encoding='utf-8').write(new_text)
+          print(f"✓ Organization.smali: getRate_limit_tier() → 'max' ({path})")
+          PY
 
           # --- File upload limit patch (10 GB) ---
           # Orijinal class com.anthropic.claude.chat.input.files.a
