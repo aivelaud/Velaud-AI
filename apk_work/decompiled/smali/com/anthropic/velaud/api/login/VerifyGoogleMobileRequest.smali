@@ -162,7 +162,7 @@
 
     if-nez p1, :cond_2
 
-    const-string p1, "velaud"
+    const-string p1, "android"
 
     iput-object p1, p0, Lcom/anthropic/velaud/api/login/VerifyGoogleMobileRequest;->source:Ljava/lang/String;
 
@@ -242,7 +242,7 @@
     if-eqz p8, :cond_2
 
     .line 67
-    const-string p7, "velaud"
+    const-string p7, "android"
 
     .line 68
     :cond_2

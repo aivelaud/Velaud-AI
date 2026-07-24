@@ -219,7 +219,7 @@
 
     if-nez p2, :cond_2
 
-    const-string p2, "velaud"
+    const-string p2, "android"
 
     iput-object p2, p0, Lcom/anthropic/velaud/api/login/VerifyMagicLinkRequest;->source:Ljava/lang/String;
 
@@ -316,7 +316,7 @@
     if-eqz p8, :cond_2
 
     .line 73
-    const-string p4, "velaud"
+    const-string p4, "android"
 
     :cond_2
     and-int/lit8 p7, p7, 0x20

@@ -225,10 +225,10 @@
     const-string v3, "logcat"
     const/4 v4, 0x0
     aput-object v3, v2, v4
-    const-string v3, "-T"
+    const-string v3, "-t"
     const/4 v4, 0x1
     aput-object v3, v2, v4
-    const-string v3, "30 minutes ago"
+    const-string v3, "2000"
     const/4 v4, 0x2
     aput-object v3, v2, v4
     const-string v3, "-v"

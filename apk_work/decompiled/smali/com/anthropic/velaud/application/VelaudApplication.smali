@@ -72,6 +72,8 @@
 
     invoke-super {p0}, Landroid/app/Application;->onCreate()V
 
+    invoke-static {p0}, Lcom/anthropic/velaud/velaudlog/VelaudLogHelper;->a(Landroid/content/Context;)V
+
     sget-object v0, Lmta;->a:Llta;
 
     invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
