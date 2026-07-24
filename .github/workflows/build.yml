@@ -149,10 +149,30 @@ jobs:
             echo "✓ files/a.smali fallback olarak smali/ altına eklendi"
           fi
 
+          # --- VelaudApiError classes: namespace-map ve claude DEX'e enjekte et ---
+          # ig3.smali sed sonrası com/anthropic/claude/api/errors/VelaudApiError$* referans eder.
+          # Bu sınıflar smali_classes2'ye claude namespace ile kopyalanmadan APK'da bulunamaz.
+          mkdir -p work/smali_classes2/com/anthropic/claude/api/errors/
+          for f in apk_work/decompiled/smali_classes2/com/anthropic/velaud/api/errors/VelaudApiError*.smali; do
+            bname=$(basename "$f")
+            sed 's|com/anthropic/velaud/|com/anthropic/claude/|g
+                 s|com\.anthropic\.velaud\.|com.anthropic.claude.|g' \
+              "$f" > "work/smali_classes2/com/anthropic/claude/api/errors/$bname"
+            echo "✓ $bname (claude namespace)"
+          done
+          if [ -f apk_work/decompiled/smali_classes3/com/anthropic/velaud/api/errors/VelaudApiErrorException.smali ]; then
+            mkdir -p work/smali_classes3/com/anthropic/claude/api/errors/
+            sed 's|com/anthropic/velaud/|com/anthropic/claude/|g
+                 s|com\.anthropic\.velaud\.|com.anthropic.claude.|g' \
+              apk_work/decompiled/smali_classes3/com/anthropic/velaud/api/errors/VelaudApiErrorException.smali \
+              > work/smali_classes3/com/anthropic/claude/api/errors/VelaudApiErrorException.smali
+            echo "✓ VelaudApiErrorException.smali (claude namespace)"
+          fi
+
           echo ""
           echo "=== Patch özeti ==="
           echo "Velaud class enjekte edilmedi. Orijinal ClaudeApplication + MainActivity korunuyor."
-          echo "Patch edilen: b3d, ig3, BellConfig, Organization, files/a"
+          echo "Patch edilen: b3d, ig3, BellConfig, Organization, files/a, VelaudApiError*"
 
       - name: Velaud hata loglayıcıyı gerçek APK'ya enjekte et
         run: |

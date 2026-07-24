@@ -410,7 +410,8 @@
     const/4 v6, 0x0
     invoke-virtual {v2, v4, v1, v5, v6}, Landroid/content/ContentResolver;->update(Landroid/net/Uri;Landroid/content/ContentValues;Ljava/lang/String;[Ljava/lang/String;)I
     const-string v1, "velaudlog.txt Downloads klasörüne kaydedildi"
-    invoke-static {p0, v1}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;)Landroid/widget/Toast;
+    const/4 v2, 0x0
+    invoke-static {p0, v1, v2}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
     move-result-object v1
     invoke-virtual {v1}, Landroid/widget/Toast;->show()V
     return-void
@@ -430,14 +431,16 @@
     invoke-virtual {v1, v0}, Ljava/io/FileOutputStream;->write([B)V
     invoke-virtual {v1}, Ljava/io/FileOutputStream;->close()V
     const-string v0, "velaudlog.txt Downloads klasörüne kaydedildi"
-    invoke-static {p0, v0}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;)Landroid/widget/Toast;
+    const/4 v1, 0x0
+    invoke-static {p0, v0, v1}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
     move-result-object v0
     invoke-virtual {v0}, Landroid/widget/Toast;->show()V
     return-void
 
     :download_error
     const-string v0, "Log indirilemedi"
-    invoke-static {p0, v0}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;)Landroid/widget/Toast;
+    const/4 v1, 0x0
+    invoke-static {p0, v0, v1}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
     move-result-object v0
     invoke-virtual {v0}, Landroid/widget/Toast;->show()V
     return-void
@@ -446,7 +449,8 @@
     :download_catch
     move-exception v0
     const-string v1, "Log indirilemedi"
-    invoke-static {p0, v1}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;)Landroid/widget/Toast;
+    const/4 v2, 0x0
+    invoke-static {p0, v1, v2}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
     move-result-object v1
     invoke-virtual {v1}, Landroid/widget/Toast;->show()V
     return-void
