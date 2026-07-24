@@ -141,64 +141,10 @@
 .end method
 
 .method public static final A(Lcom/anthropic/velaud/api/account/Organization;)Llqh;
-    .locals 2
+    .locals 0
 
-    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    sget-object v0, Lcom/anthropic/velaud/types/strings/Capability;->Companion:Llj2;
-
-    invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    invoke-static {}, Lcom/anthropic/velaud/types/strings/Capability;->access$getRAVEN$cp()Ljava/lang/String;
-
-    move-result-object v1
-
-    invoke-static {p0, v1}, Lp8;->E(Lcom/anthropic/velaud/api/account/Organization;Ljava/lang/String;)Z
-
-    move-result v1
-
-    if-eqz v1, :cond_0
-
+    # velaud: always return MAX (Raven) tier — tum kullanicilar max plan
     sget-object p0, Llqh;->I:Llqh;
-
-    return-object p0
-
-    :cond_0
-    invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    invoke-static {}, Lcom/anthropic/velaud/types/strings/Capability;->access$getVELAUD_MAX$cp()Ljava/lang/String;
-
-    move-result-object v1
-
-    invoke-static {p0, v1}, Lp8;->E(Lcom/anthropic/velaud/api/account/Organization;Ljava/lang/String;)Z
-
-    move-result v1
-
-    if-eqz v1, :cond_1
-
-    sget-object p0, Llqh;->H:Llqh;
-
-    return-object p0
-
-    :cond_1
-    invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    invoke-static {}, Lcom/anthropic/velaud/types/strings/Capability;->access$getVELAUD_PRO$cp()Ljava/lang/String;
-
-    move-result-object v0
-
-    invoke-static {p0, v0}, Lp8;->E(Lcom/anthropic/velaud/api/account/Organization;Ljava/lang/String;)Z
-
-    move-result p0
-
-    if-eqz p0, :cond_2
-
-    sget-object p0, Llqh;->G:Llqh;
-
-    return-object p0
-
-    :cond_2
-    sget-object p0, Llqh;->F:Llqh;
 
     return-object p0
 .end method

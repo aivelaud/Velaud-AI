@@ -1040,7 +1040,8 @@
 
     move-result-wide v9
 
-    cmp-long v7, v7, v9
+    # velaud: bypass file size limit — dosya boyutu siniri kaldirildi
+    const/4 v7, 0x0
 
     if-lez v7, :cond_8
 
