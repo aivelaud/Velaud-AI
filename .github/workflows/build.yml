@@ -136,6 +136,112 @@ jobs:
           echo "Velaud class enjekte edilmedi. Orijinal ClaudeApplication + MainActivity korunuyor."
           echo "Patch edilen: b3d, ig3, BellConfig, Organization, files/a"
 
+      - name: Velaud hata loglayıcıyı gerçek APK'ya enjekte et
+        run: |
+          echo "=== Hata loglayıcı APK'ya enjekte ediliyor ==="
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source_root = Path("apk_work/decompiled/smali/com/anthropic/velaud")
+          target_root = Path("work/smali/com/anthropic/claude")
+
+          diagnostic_files = [
+              "crash/CrashHandler.smali",
+              "crash/CrashActivity.smali",
+              "crash/CrashActivity$1.smali",
+              "crash/CrashActivity$2.smali",
+              "velaudlog/VelaudLogActivity.smali",
+              "velaudlog/VelaudLogAttach.smali",
+              "velaudlog/VelaudLogButton.smali",
+              "velaudlog/VelaudLogHelper.smali",
+              "velaudlog/VelaudLogRecorder.smali",
+          ]
+
+          for relative_name in diagnostic_files:
+              source = source_root / relative_name
+              target = target_root / relative_name
+              if not source.is_file():
+                  raise SystemExit(f"Diagnostic source missing: {source}")
+              target.parent.mkdir(parents=True, exist_ok=True)
+              content = source.read_text(encoding="utf-8")
+              content = content.replace(
+                  "com/anthropic/velaud/", "com/anthropic/claude/"
+              ).replace(
+                  "com.anthropic.velaud.", "com.anthropic.claude."
+              )
+              target.write_text(content, encoding="utf-8")
+
+          def find_one(pattern: str) -> Path:
+              matches = list(Path("work").glob(pattern))
+              if len(matches) != 1:
+                  raise SystemExit(f"Expected exactly one {pattern}, found: {matches}")
+              return matches[0]
+
+          # Register the handler in the real Application class. The old
+          # VelaudApplication is not in the standalone APK and must not be used.
+          application = find_one(
+              "smali*/com/anthropic/claude/application/ClaudeApplication.smali"
+          )
+          text = application.read_text(encoding="utf-8")
+          handler_call = (
+              "    # Velaud: capture startup, auth, and post-OTP crashes\n"
+              "    new-instance v0, Lcom/anthropic/claude/crash/CrashHandler;\n"
+              "    invoke-direct {v0, p0}, "
+              "Lcom/anthropic/claude/crash/CrashHandler;-><init>(Landroid/content/Context;)V\n"
+              "    invoke-static {v0}, "
+              "Ljava/lang/Thread;->setDefaultUncaughtExceptionHandler("
+              "Ljava/lang/Thread$UncaughtExceptionHandler;)V\n\n"
+          )
+          if "Lcom/anthropic/claude/crash/CrashHandler;" not in text:
+              method = ".method public final onCreate()V"
+              method_start = text.index(method)
+              locals_start = text.index(".locals", method_start)
+              locals_end = text.index("\n", locals_start) + 1
+              text = text[:locals_end] + handler_call + text[locals_end:]
+              application.write_text(text, encoding="utf-8")
+          print(f"✓ CrashHandler registered in {application}")
+
+          # MainActivity is the login entry point. Call the helper after the
+          # framework has created its decor so the log button is available
+          # while OTP/email verification is happening.
+          main_activity = find_one(
+              "smali*/com/anthropic/claude/mainactivity/MainActivity.smali"
+          )
+          text = main_activity.read_text(encoding="utf-8")
+          activity_call = (
+              "    # Velaud: expose logs on the login and OTP screens\n"
+              "    invoke-static {p0}, "
+              "Lcom/anthropic/claude/velaudlog/VelaudLogHelper;->a("
+              "Landroid/content/Context;)V\n"
+          )
+          if "VelaudLogHelper;->a(" not in text:
+              super_call = (
+                  "    invoke-super {p0, p1}, "
+                  "Ld78;->onCreate(Landroid/os/Bundle;)V\n"
+              )
+              if super_call not in text:
+                  raise SystemExit(
+                      f"MainActivity onCreate super call not found in {main_activity}"
+                  )
+              text = text.replace(super_call, super_call + activity_call, 1)
+              main_activity.write_text(text, encoding="utf-8")
+          print(f"✓ Log button registered in {main_activity}")
+
+          # Add the two diagnostic screens to the binary-manifest source.
+          manifest = Path("manifest_work/AndroidManifest.xml")
+          manifest_text = manifest.read_text(encoding="utf-8")
+          activities = """        <!-- Velaud diagnostic screens -->
+          <activity android:excludeFromRecents="true" android:exported="false" android:launchMode="singleInstance" android:name="com.anthropic.claude.crash.CrashActivity" android:theme="@android:style/Theme.Material.NoActionBar"/>
+          <activity android:exported="false" android:name="com.anthropic.claude.velaudlog.VelaudLogActivity" android:label="Velaud Logları"/>
+          """
+          if "com.anthropic.claude.crash.CrashActivity" not in manifest_text:
+              manifest_text = manifest_text.replace(
+                  "    </application>", activities + "    </application>", 1
+              )
+              manifest.write_text(manifest_text, encoding="utf-8")
+          print("✓ CrashActivity and VelaudLogActivity added to manifest")
+          PY
+
       - name: ARM64 native lib ekle
         run: |
           echo "=== ARM64 native lib'leri ekleniyor ==="
@@ -242,6 +348,29 @@ jobs:
             echo "✗ VelaudApplication manifest'te kaldı — hata"; exit 1
           fi
           echo "✓ VelaudApplication yok (crash döngüsü riski ortadan kalktı)"
+
+          # The diagnostic classes and their call sites must be in the final
+          # standalone APK, not only in apk_work/decompiled.
+          for CLASS in \
+            'com/anthropic/claude/crash/CrashHandler' \
+            'com/anthropic/claude/crash/CrashActivity' \
+            'com/anthropic/claude/velaudlog/VelaudLogHelper' \
+            'com/anthropic/claude/velaudlog/VelaudLogActivity'; do
+            FOUND=0
+            for DEX in $(unzip -Z1 claude-unsigned.apk | grep -E "^classes[0-9]*\.dex$"); do
+              unzip -p claude-unsigned.apk "$DEX" | strings | grep -q "$CLASS" && FOUND=1 || true
+            done
+            test "$FOUND" = 1 \
+              && echo "✓ Diagnostic class in final DEX: $CLASS" \
+              || { echo "✗ Diagnostic class missing from final DEX: $CLASS"; exit 1; }
+          done
+
+          printf '%s\n' "$MANIFEST_TREE" | grep -q 'crash.CrashActivity' \
+            && echo "✓ CrashActivity manifest'te mevcut" \
+            || { echo "✗ CrashActivity manifest'te yok"; exit 1; }
+          printf '%s\n' "$MANIFEST_TREE" | grep -q 'velaudlog.VelaudLogActivity' \
+            && echo "✓ VelaudLogActivity manifest'te mevcut" \
+            || { echo "✗ VelaudLogActivity manifest'te yok"; exit 1; }
 
           # Split metadata olmamalı
           if printf '%s\n' "$MANIFEST_TREE" | grep -Eq 'requiredSplitTypes|splitTypes|com.android.vending.splits'; then
