@@ -360,6 +360,114 @@ jobs:
           echo ""
           echo "=== Ek patch özeti: p8.A()→MAX, p8.E()→true, lqh.a()→false, ModelSelectorEntry ✓ ==="
 
+      - name: FileUploadConfig ve ek p8 metodları patchle
+        run: |
+          echo "=== FileUploadConfig limit patch'leri ve ek p8 metodları uygulanıyor ==="
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          # ── 1. FileUploadConfig.getMax_per_message_upload_count() → 100 ──────────
+          # ── 2. FileUploadConfig.getMax_in_context_file_bytes()    → INT_MAX ─────
+          # ── 3. FileUploadConfig.getMax_inline_paste_bytes()       → INT_MAX ─────
+          candidates = list(Path("work").glob(
+              "smali*/com/anthropic/claude/configs/flags/FileUploadConfig.smali"
+          ))
+          if not candidates:
+              print("⚠ FileUploadConfig.smali bulunamadı — atlanıyor")
+          else:
+              fuc_path = candidates[0]
+              fuc_text = fuc_path.read_text(encoding="utf-8")
+
+              def patch_int_getter(text, method_name, return_val, label):
+                  pattern = re.compile(
+                      rf'(\.method public final {re.escape(method_name)}\(\)I\s*\n)'
+                      r'.*?'
+                      r'(\.end method)',
+                      re.DOTALL
+                  )
+                  repl = (
+                      r'\g<1>'
+                      f'    .locals 1\n\n'
+                      f'    const v0, {return_val}\n\n'
+                      f'    return v0\n'
+                      r'\g<2>'
+                  )
+                  new_text, n = pattern.subn(repl, text)
+                  if n == 0:
+                      print(f"⚠ {label} bulunamadı — atlanıyor")
+                      return text
+                  print(f"✓ {label} → {return_val}")
+                  return new_text
+
+              # max 100 dosya per message
+              fuc_text = patch_int_getter(fuc_text, "getMax_per_message_upload_count", "0x64", "getMax_per_message_upload_count()")
+              # max 2 GB context file (0x80000000 = MIN_INT, use safe positive: 0x7ffe0000)
+              fuc_text = patch_int_getter(fuc_text, "getMax_in_context_file_bytes", "0x7ffe0000", "getMax_in_context_file_bytes()")
+              # max 64 MB inline paste
+              fuc_text = patch_int_getter(fuc_text, "getMax_inline_paste_bytes", "0x7ffe0000", "getMax_inline_paste_bytes()")
+
+              fuc_path.write_text(fuc_text, encoding="utf-8")
+              print(f"✓ FileUploadConfig.smali patched: {fuc_path}")
+
+          # ── 4. p8.F(chd)Z → always return true ─────────────────────────────────
+          # ── 5. p8.x(chd)Z → always return true ─────────────────────────────────
+          # These boolean capability checks gate "More Models" and other pro features.
+          p8_candidates = list(Path("work").glob("smali*/p8.smali"))
+          if not p8_candidates:
+              print("⚠ p8.smali bulunamadı — p8.F/x atlanıyor")
+          else:
+              p8_path = p8_candidates[0]
+              p8_text = p8_path.read_text(encoding="utf-8")
+
+              def patch_bool_method(text, sig, label):
+                  """Replace method body after .locals line with: const/4 p0,0x1; return p0."""
+                  pattern = re.compile(
+                      rf'(\.method public static final {re.escape(sig)}\s*\n)'
+                      r'.*?'
+                      r'(\.end method)',
+                      re.DOTALL
+                  )
+                  repl = (
+                      r'\g<1>'
+                      '    .locals 0\n\n'
+                      '    # velaud: always return true — pro/max capability gate bypass\n'
+                      '    const/4 p0, 0x1\n\n'
+                      '    return p0\n'
+                      r'\g<2>'
+                  )
+                  new_text, n = pattern.subn(repl, text)
+                  if n == 0:
+                      print(f"⚠ {label} bulunamadı — atlanıyor")
+                      return text
+                  print(f"✓ {label} → true")
+                  return new_text
+
+              p8_text = patch_bool_method(p8_text, "F(Lchd;)Z", "p8.F(chd)")
+              p8_text = patch_bool_method(p8_text, "x(Lchd;)Z", "p8.x(chd)")
+              p8_path.write_text(p8_text, encoding="utf-8")
+              print(f"✓ p8.smali ek metodlar patched: {p8_path}")
+
+          # ── 6. ModelSelectorEntry default FileUploadConfig patch ─────────────────
+          # Patch the synthetic constructor default value for max_per_message_upload_count
+          # from 0x14 (20) to 0x64 (100) in FileUploadConfig smali_classes3 source.
+          fuc3_candidates = list(Path("work").glob(
+              "smali_classes3/com/anthropic/claude/configs/flags/FileUploadConfig.smali"
+          ))
+          if fuc3_candidates:
+              fuc3_path = fuc3_candidates[0]
+              fuc3_text = fuc3_path.read_text(encoding="utf-8")
+              # Replace the default count 0x14 → 0x64 in constructor
+              fuc3_text = fuc3_text.replace("const/16 p2, 0x14\n\n    iput p2, p0, Lcom/anthropic/claude/configs/flags/FileUploadConfig;->max_per_message_upload_count:I",
+                                            "const/16 p2, 0x64\n\n    iput p2, p0, Lcom/anthropic/claude/configs/flags/FileUploadConfig;->max_per_message_upload_count:I")
+              fuc3_path.write_text(fuc3_text, encoding="utf-8")
+              print(f"✓ FileUploadConfig smali_classes3 default count → 100")
+          else:
+              print("⚠ smali_classes3/FileUploadConfig.smali bulunamadı — atlanıyor")
+          PY
+
+          echo "=== FileUploadConfig + p8.F/x patch tamamlandı ==="
+
       - name: Velaud hata loglayıcıyı gerçek APK'ya enjekte et
         run: |
           echo "=== Hata loglayıcı APK'ya enjekte ediliyor ==="
