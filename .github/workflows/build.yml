@@ -246,6 +246,120 @@ jobs:
           echo "Velaud class enjekte edilmedi. Orijinal ClaudeApplication + MainActivity korunuyor."
           echo "Patch edilen: b3d, ig3, BellConfig, Organization, files/a, VelaudApiError*"
 
+      - name: p8, lqh ve ModelSelectorEntry ek patchleri
+        run: |
+          echo "=== p8.A(), p8.E(), lqh.a() ve ModelSelectorEntry patchleri uygulanıyor ==="
+
+          # --- p8.A() → always return MAX (RAVEN) tier ---
+          # --- p8.E() → always return true (all capabilities enabled) ---
+          P8_TARGET=$(find work/smali* -type f -name 'p8.smali' | head -1)
+          if [ -z "$P8_TARGET" ]; then
+            echo "✗ p8.smali bulunamadı"; exit 1
+          fi
+          python3 - "$P8_TARGET" <<'PY'
+          import sys, re
+          path = sys.argv[1]
+          text = open(path, encoding='utf-8').read()
+
+          # p8.A(Organization)Llqh → always return lqh.I (RAVEN/MAX tier)
+          pattern_A = re.compile(
+              r'(\.method public static final A\(Lcom/anthropic/claude/api/account/Organization;\)Llqh;\s*\n)'
+              r'.*?'
+              r'(\.end method)',
+              re.DOTALL
+          )
+          replacement_A = (
+              r'\g<1>'
+              '    .locals 0\n\n'
+              '    # velaud: always return MAX (RAVEN) tier — tum kullanicilar max plan\n'
+              '    sget-object p0, Llqh;->I:Llqh;\n\n'
+              '    return-object p0\n'
+              r'\g<2>'
+          )
+          new_text, n = pattern_A.subn(replacement_A, text)
+          if n == 0:
+              print("⚠ p8.A() bulunamadı — atlanıyor")
+          else:
+              text = new_text
+              print(f"✓ p8.A() → MAX tier (RAVEN) patched ({path})")
+
+          # p8.E(Organization, String)Z → always return true (all capabilities)
+          pattern_E = re.compile(
+              r'(\.method public static final E\(Lcom/anthropic/claude/api/account/Organization;Ljava/lang/String;\)Z\s*\n)'
+              r'.*?'
+              r'(\.end method)',
+              re.DOTALL
+          )
+          replacement_E = (
+              r'\g<1>'
+              '    .locals 0\n\n'
+              '    # velaud: always return true — tum capability\'ler acik\n'
+              '    const/4 p0, 0x1\n\n'
+              '    return p0\n'
+              r'\g<2>'
+          )
+          new_text, n = pattern_E.subn(replacement_E, text)
+          if n == 0:
+              print("⚠ p8.E() bulunamadı — atlanıyor")
+          else:
+              text = new_text
+              print(f"✓ p8.E() → true (all capabilities) patched ({path})")
+
+          open(path, 'w', encoding='utf-8').write(text)
+          PY
+
+          # --- lqh.a() → always return false (never show upsell) ---
+          LQH_TARGET=$(find work/smali* -type f -name 'lqh.smali' | head -1)
+          if [ -z "$LQH_TARGET" ]; then
+            echo "✗ lqh.smali bulunamadı"; exit 1
+          fi
+          python3 - "$LQH_TARGET" <<'PY'
+          import sys, re
+          path = sys.argv[1]
+          text = open(path, encoding='utf-8').read()
+          pattern = re.compile(
+              r'(\.method public final a\(\)Z\s*\n)'
+              r'.*?'
+              r'(\.end method)',
+              re.DOTALL
+          )
+          replacement = (
+              r'\g<1>'
+              '    .locals 0\n\n'
+              '    # velaud: never show free-tier upsell — pro kullanici\n'
+              '    const/4 p0, 0x0\n\n'
+              '    return p0\n'
+              r'\g<2>'
+          )
+          new_text, n = pattern.subn(replacement, text)
+          if n == 0:
+              print("⚠ lqh.a() bulunamadı — atlanıyor")
+          else:
+              open(path, 'w', encoding='utf-8').write(new_text)
+              print(f"✓ lqh.a() → false (no upsell) patched ({path})")
+          PY
+
+          # --- ModelSelectorEntry: velaud decompiled versiyonu namespace map ile kopyala ---
+          # Bu dosya orijinal APK'da disabled=true olan modelleri bypass eder
+          MSE_SOURCE="apk_work/decompiled/smali/com/anthropic/velaud/api/model/ModelSelectorEntry.smali"
+          MSE_TARGET=$(find work/smali* -type f -path '*/anthropic/claude/api/model/ModelSelectorEntry.smali' | head -1)
+          if [ -z "$MSE_TARGET" ]; then
+            echo "⚠ ModelSelectorEntry hedef bulunamadı, smali/ altına ekleniyor"
+            mkdir -p work/smali/com/anthropic/claude/api/model/
+            MSE_TARGET="work/smali/com/anthropic/claude/api/model/ModelSelectorEntry.smali"
+          fi
+          if [ -f "$MSE_SOURCE" ]; then
+            sed 's|com/anthropic/velaud/|com/anthropic/claude/|g
+                 s|com\.anthropic\.velaud\.|com.anthropic.claude.|g' \
+              "$MSE_SOURCE" > "$MSE_TARGET"
+            echo "✓ ModelSelectorEntry.smali patched (namespace mapped to claude): $MSE_TARGET"
+          else
+            echo "✗ ModelSelectorEntry kaynak bulunamadı: $MSE_SOURCE"; exit 1
+          fi
+
+          echo ""
+          echo "=== Ek patch özeti: p8.A()→MAX, p8.E()→true, lqh.a()→false, ModelSelectorEntry ✓ ==="
+
       - name: Velaud hata loglayıcıyı gerçek APK'ya enjekte et
         run: |
           echo "=== Hata loglayıcı APK'ya enjekte ediliyor ==="
