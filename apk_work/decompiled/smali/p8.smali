@@ -333,21 +333,8 @@
 .method public static final E(Lcom/anthropic/velaud/api/account/Organization;Ljava/lang/String;)Z
     .locals 0
 
-    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    invoke-virtual {p0}, Lcom/anthropic/velaud/api/account/Organization;->getCapabilities()Ljava/util/List;
-
-    move-result-object p0
-
-    invoke-static {p1}, Lcom/anthropic/velaud/types/strings/Capability;->box-impl(Ljava/lang/String;)Lcom/anthropic/velaud/types/strings/Capability;
-
-    move-result-object p1
-
-    invoke-interface {p0, p1}, Ljava/util/List;->contains(Ljava/lang/Object;)Z
-
-    move-result p0
+    # velaud: always return true — tum capability'ler acik
+    const/4 p0, 0x1
 
     return p0
 .end method

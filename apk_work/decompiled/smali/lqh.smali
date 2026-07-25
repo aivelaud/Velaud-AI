@@ -121,37 +121,10 @@
 
 # virtual methods
 .method public final a()Z
-    .locals 2
+    .locals 0
 
-    invoke-virtual {p0}, Ljava/lang/Enum;->ordinal()I
-
-    move-result p0
-
-    const/4 v0, 0x1
-
-    if-eqz p0, :cond_1
-
-    if-eq p0, v0, :cond_1
-
-    const/4 v1, 0x2
-
-    if-eq p0, v1, :cond_1
-
-    const/4 v0, 0x3
-
-    if-ne p0, v0, :cond_0
-
+    # velaud: never show free-tier upsell — pro kullanici
     const/4 p0, 0x0
 
     return p0
-
-    :cond_0
-    invoke-static {}, Le97;->d()V
-
-    const/4 p0, 0x0
-
-    return p0
-
-    :cond_1
-    return v0
 .end method

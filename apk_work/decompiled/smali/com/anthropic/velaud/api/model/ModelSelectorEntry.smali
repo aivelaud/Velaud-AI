@@ -1544,7 +1544,8 @@
 .method public final getDisabled()Z
     .locals 0
 
-    iget-boolean p0, p0, Lcom/anthropic/velaud/api/model/ModelSelectorEntry;->disabled:Z
+    # velaud: never disable models — tum modeller acik
+    const/4 p0, 0x0
 
     return p0
 .end method
