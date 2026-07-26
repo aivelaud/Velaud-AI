@@ -468,6 +468,129 @@ jobs:
 
           echo "=== FileUploadConfig + p8.F/x patch tamamlandı ==="
 
+      - name: JSON deserializer seviyesinde sunucu yanıtlarını override et
+        run: |
+          echo "=== Sunucu JSON yanıtları deserializer seviyesinde override ediliyor ==="
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          # ═══════════════════════════════════════════════════════════════════════
+          # PATCH 1: g2d.smali — Organization deserializer
+          #   Sunucu JSON'undaki rate_limit_tier değeri ne olursa olsun "max" olarak
+          #   override edilir. Bu, login/account refresh yanıtlarında çalışır.
+          #   v14 = rate_limit_tier String register'ı (constructor call öncesi)
+          # ═══════════════════════════════════════════════════════════════════════
+          g2d_candidates = list(Path("work").glob("smali*/g2d.smali"))
+          if not g2d_candidates:
+              print("⚠ g2d.smali bulunamadı — Organization deserializer patch atlanıyor")
+          else:
+              g2d_path = g2d_candidates[0]
+              g2d_text = g2d_path.read_text(encoding="utf-8")
+
+              # Injection point: new-instance of Organization'dan hemen önce
+              # v14 = rate_limit_tier String (pswitch_8 case'inde set ediliyor)
+              target = "    new-instance v7, Lcom/anthropic/claude/api/account/Organization;"
+              if target in g2d_text and "const-string v14, \"max\"" not in g2d_text:
+                  inject = (
+                      "    # velaud: sunucu JSON'unu geç — rate_limit_tier daima \"max\"\n"
+                      "    const-string v14, \"max\"\n\n"
+                  )
+                  g2d_text = g2d_text.replace(target, inject + target, 1)
+                  g2d_path.write_text(g2d_text, encoding="utf-8")
+                  print(f"✓ g2d.smali: rate_limit_tier override → \"max\" ({g2d_path})")
+              elif "const-string v14, \"max\"" in g2d_text:
+                  print("✓ g2d.smali: zaten patched")
+              else:
+                  print(f"⚠ g2d.smali: injection target bulunamadı — manuel kontrol gerekebilir")
+                  # Fallback: velaud namespace ile de dene
+                  target_v = "    new-instance v7, Lcom/anthropic/velaud/api/account/Organization;"
+                  if target_v in g2d_text:
+                      inject = (
+                          "    # velaud: sunucu JSON'unu geç — rate_limit_tier daima \"max\"\n"
+                          "    const-string v14, \"max\"\n\n"
+                      )
+                      g2d_text = g2d_text.replace(target_v, inject + target_v, 1)
+                      g2d_path.write_text(g2d_text, encoding="utf-8")
+                      print(f"✓ g2d.smali: fallback (velaud ns) patched")
+
+          # ═══════════════════════════════════════════════════════════════════════
+          # PATCH 2: o6c.smali — ModelSelectorEntry deserializer
+          #   Sunucu JSON'undaki disabled=true değeri false olarak override edilir.
+          #   v17 = disabled Z (boolean) register'ı (constructor call öncesi)
+          #   Bu, "more models" ekranındaki modellerin seçilebilir görünmesini sağlar.
+          # ═══════════════════════════════════════════════════════════════════════
+          o6c_candidates = list(Path("work").glob("smali*/o6c.smali"))
+          if not o6c_candidates:
+              print("⚠ o6c.smali bulunamadı — ModelSelectorEntry disabled patch atlanıyor")
+          else:
+              o6c_path = o6c_candidates[0]
+              o6c_text = o6c_path.read_text(encoding="utf-8")
+
+              target = "    new-instance v7, Lcom/anthropic/claude/api/model/ModelSelectorEntry;"
+              if target in o6c_text and "# velaud: disabled override" not in o6c_text:
+                  inject = (
+                      "    # velaud: sunucu JSON'unu geç — disabled daima false\n"
+                      "    const/4 v17, 0x0\n\n"
+                  )
+                  o6c_text = o6c_text.replace(target, inject + target, 1)
+                  o6c_path.write_text(o6c_text, encoding="utf-8")
+                  print(f"✓ o6c.smali: disabled override → false ({o6c_path})")
+              elif "# velaud: disabled override" in o6c_text:
+                  print("✓ o6c.smali: zaten patched")
+              else:
+                  # Fallback: velaud namespace
+                  target_v = "    new-instance v7, Lcom/anthropic/velaud/api/model/ModelSelectorEntry;"
+                  if target_v in o6c_text:
+                      inject = (
+                          "    # velaud: sunucu JSON'unu geç — disabled daima false\n"
+                          "    const/4 v17, 0x0\n\n"
+                      )
+                      o6c_text = o6c_text.replace(target_v, inject + target_v, 1)
+                      o6c_path.write_text(o6c_text, encoding="utf-8")
+                      print(f"✓ o6c.smali: fallback (velaud ns) patched")
+                  else:
+                      print(f"⚠ o6c.smali: injection target bulunamadı")
+
+          # ═══════════════════════════════════════════════════════════════════════
+          # PATCH 3: Organization constructor'da rate_limit_tier field'ını hardcode et
+          #   Bazı kod path'leri iget ile direkt field'a erişebilir (getter bypass).
+          #   Organization.<init> içinde rate_limit_tier iput'unu "max" olarak zorla.
+          # ═══════════════════════════════════════════════════════════════════════
+          org_candidates = list(Path("work").glob(
+              "smali*/com/anthropic/claude/api/account/Organization.smali"
+          ))
+          if org_candidates:
+              org_path = org_candidates[0]
+              org_text = org_path.read_text(encoding="utf-8")
+              # rate_limit_tier field adı — iput-object ile set ediliyor
+              # pattern: iput-object pX, p0, L...Organization;->rate_limit_tier:Ljava/lang/String;
+              pattern = re.compile(
+                  r'(iput-object\s+\w+,\s*p0,\s*Lcom/anthropic/claude/api/account/Organization;->rate_limit_tier:Ljava/lang/String;)'
+              )
+              def replace_tier(m):
+                  return (
+                      "# velaud: rate_limit_tier field'ı daima \"max\" olarak set et\n"
+                      "    const-string v0, \"max\"\n"
+                      "    iput-object v0, p0, Lcom/anthropic/claude/api/account/Organization;->rate_limit_tier:Ljava/lang/String;"
+                  )
+              new_org, n = pattern.subn(replace_tier, org_text)
+              if n > 0:
+                  org_path.write_text(new_org, encoding="utf-8")
+                  print(f"✓ Organization.<init>: rate_limit_tier field daima \"max\" ({n} yer, {org_path})")
+              else:
+                  print("⚠ Organization.<init> rate_limit_tier iput bulunamadı — atlanıyor")
+          else:
+              print("⚠ Organization.smali bulunamadı — iput patch atlanıyor")
+
+          print("\n=== JSON deserializer override patch özeti ===")
+          print("g2d.smali (Org deserializer) → rate_limit_tier = \"max\"")
+          print("o6c.smali (ModelSelectorEntry deserializer) → disabled = false")
+          print("Organization.<init> → rate_limit_tier field = \"max\"")
+          PY
+
+          echo "=== JSON deserializer override tamamlandı ==="
+
       - name: Velaud hata loglayıcıyı gerçek APK'ya enjekte et
         run: |
           echo "=== Hata loglayıcı APK'ya enjekte ediliyor ==="
