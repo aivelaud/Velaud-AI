@@ -579,41 +579,17 @@ jobs:
                   else:
                       print(f"⚠ o6c.smali: injection target bulunamadı")
 
-          # ═══════════════════════════════════════════════════════════════════════
-          # PATCH 3: Organization constructor'da rate_limit_tier field'ını hardcode et
-          #   Bazı kod path'leri iget ile direkt field'a erişebilir (getter bypass).
-          #   Organization.<init> içinde rate_limit_tier iput'unu "max" olarak zorla.
-          # ═══════════════════════════════════════════════════════════════════════
-          org_candidates = list(Path("work").glob(
-              "smali*/com/anthropic/claude/api/account/Organization.smali"
-          ))
-          if org_candidates:
-              org_path = org_candidates[0]
-              org_text = org_path.read_text(encoding="utf-8")
-              # rate_limit_tier field adı — iput-object ile set ediliyor
-              # pattern: iput-object pX, p0, L...Organization;->rate_limit_tier:Ljava/lang/String;
-              pattern = re.compile(
-                  r'(iput-object\s+\w+,\s*p0,\s*Lcom/anthropic/claude/api/account/Organization;->rate_limit_tier:Ljava/lang/String;)'
-              )
-              def replace_tier(m):
-                  return (
-                      "# velaud: rate_limit_tier field'ı daima \"max\" olarak set et\n"
-                      "    const-string v0, \"max\"\n"
-                      "    iput-object v0, p0, Lcom/anthropic/claude/api/account/Organization;->rate_limit_tier:Ljava/lang/String;"
-                  )
-              new_org, n = pattern.subn(replace_tier, org_text)
-              if n > 0:
-                  org_path.write_text(new_org, encoding="utf-8")
-                  print(f"✓ Organization.<init>: rate_limit_tier field daima \"max\" ({n} yer, {org_path})")
-              else:
-                  print("⚠ Organization.<init> rate_limit_tier iput bulunamadı — atlanıyor")
-          else:
-              print("⚠ Organization.smali bulunamadı — iput patch atlanıyor")
+          # PATCH 3 kaldırıldı: Organization.<init> iput-object patchi VerifyError'a yol açıyordu.
+          # Sebep: constructor'da v0 lokal register mevcut olmayabilir (`.locals 0`)
+          # ya da v0 type tracking açısından yanlış type'a sahip olabilir.
+          # getRate_limit_tier() getter zaten "max" döndürüyor (önceki patch),
+          # g2d.smali deserializer da rate_limit_tier'ı "max" olarak set ediyor —
+          # constructor field patch'ine gerek yok.
 
           print("\n=== JSON deserializer override patch özeti ===")
           print("g2d.smali (Org deserializer) → rate_limit_tier = \"max\"")
           print("o6c.smali (ModelSelectorEntry deserializer) → disabled = false")
-          print("Organization.<init> → rate_limit_tier field = \"max\"")
+          print("Organization.<init> constructor patch → ATLANILDI (VerifyError riski)")
           PY
 
           echo "=== JSON deserializer override tamamlandı ==="
