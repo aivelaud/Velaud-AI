@@ -173,6 +173,33 @@ jobs:
               print(f"✓ Organization.smali: getRate_limit_upsell() → UNKNOWN ({path})")
           PY
 
+          # --- Organization patch: getRaven_type() → null (Settings'teki "Team" badge kaldır) ---
+          python3 - "$ORG_TARGET" <<'PY'
+          import sys, re
+          path = sys.argv[1]
+          text = open(path, encoding='utf-8').read()
+          pattern = re.compile(
+              r'(\.method public final getRaven_type\(\)Lcom/anthropic/claude/api/account/RavenType;\s*\n)'
+              r'.*?'
+              r'(\.end method)',
+              re.DOTALL
+          )
+          replacement = (
+              r'\g<1>'
+              '    .locals 0\n\n'
+              '    # velaud: raven_type → null (team/enterprise badge kaldırıldı)\n'
+              '    const/4 p0, 0x0\n\n'
+              '    return-object p0\n'
+              r'\g<2>'
+          )
+          new_text, n = pattern.subn(replacement, text)
+          if n == 0:
+              print("⚠ getRaven_type() metodu bulunamadı — atlanıyor")
+          else:
+              open(path, 'w', encoding='utf-8').write(new_text)
+              print(f"✓ Organization.smali: getRaven_type() → null (Team badge kaldırıldı) ({path})")
+          PY
+
           # --- RateLimit limit bypass: ExceedsLimit + ApproachingLimit → RateLimit directly ---
           # instance-of ... RateLimit$Limited kontrollerini bypass etmek için
           # ExceedsLimit ve ApproachingLimit artık Limited yerine RateLimit implement eder.
@@ -357,8 +384,35 @@ jobs:
             echo "✗ ModelSelectorEntry kaynak bulunamadı: $MSE_SOURCE"; exit 1
           fi
 
+          # --- ModelSelectorEntry: getBadge() → null (Pro etiketlerini kaldır) ---
+          python3 - "$MSE_TARGET" <<'PY'
+          import sys, re
+          path = sys.argv[1]
+          text = open(path, encoding='utf-8').read()
+          pattern = re.compile(
+              r'(\.method public final getBadge\(\)Lcom/anthropic/claude/api/model/Badge;\s*\n)'
+              r'.*?'
+              r'(\.end method)',
+              re.DOTALL
+          )
+          replacement = (
+              r'\g<1>'
+              '    .locals 0\n\n'
+              '    # velaud: badge daima null — Pro etiketi her modelden kaldırıldı\n'
+              '    const/4 p0, 0x0\n\n'
+              '    return-object p0\n'
+              r'\g<2>'
+          )
+          new_text, n = pattern.subn(replacement, text)
+          if n == 0:
+              print("⚠ getBadge() bulunamadı — atlanıyor")
+          else:
+              open(path, 'w', encoding='utf-8').write(new_text)
+              print(f"✓ ModelSelectorEntry.smali: getBadge() → null (Pro etiketleri kaldırıldı) ({path})")
+          PY
+
           echo ""
-          echo "=== Ek patch özeti: p8.A()→MAX, p8.E()→true, lqh.a()→false, ModelSelectorEntry ✓ ==="
+          echo "=== Ek patch özeti: p8.A()→MAX, p8.E()→true, lqh.a()→false, ModelSelectorEntry ✓, getBadge()→null ✓ ==="
 
       - name: FileUploadConfig ve ek p8 metodları patchle
         run: |
@@ -464,9 +518,75 @@ jobs:
               print(f"✓ FileUploadConfig smali_classes3 default count → 100")
           else:
               print("⚠ smali_classes3/FileUploadConfig.smali bulunamadı — atlanıyor")
+
+          # ── 7. FeatureAccess.getStatus() → AVAILABLE (model erişim entitlement engeli kaldır) ──
+          fa_candidates = list(Path("work").glob(
+              "smali*/com/anthropic/claude/api/account/FeatureAccess.smali"
+          ))
+          if not fa_candidates:
+              print("⚠ FeatureAccess.smali bulunamadı — atlanıyor")
+          else:
+              for fa_path in fa_candidates:
+                  fa_text = fa_path.read_text(encoding="utf-8")
+                  pattern_fa = re.compile(
+                      r'(\.method public final getStatus\(\)Lcom/anthropic/claude/api/account/FeatureAccessStatus;\s*\n)'
+                      r'.*?'
+                      r'(\.end method)',
+                      re.DOTALL
+                  )
+                  replacement_fa = (
+                      r'\g<1>'
+                      '    .locals 0\n\n'
+                      '    # velaud: her feature AVAILABLE — entitlement/plan engeli kaldırıldı\n'
+                      '    sget-object p0, Lcom/anthropic/claude/api/account/FeatureAccessStatus;->AVAILABLE:Lcom/anthropic/claude/api/account/FeatureAccessStatus;\n\n'
+                      '    return-object p0\n'
+                      r'\g<2>'
+                  )
+                  new_fa, n = pattern_fa.subn(replacement_fa, fa_text)
+                  if n > 0:
+                      fa_path.write_text(new_fa, encoding="utf-8")
+                      print(f"✓ FeatureAccess.getStatus() → AVAILABLE ({fa_path})")
+                  else:
+                      print(f"⚠ FeatureAccess.getStatus() bulunamadı: {fa_path}")
+
+          # ── 8. ImageUploadConfig / fotoğraf limitleri → maksimum ──────────────────
+          # Fotoğraf/resim upload limit sınıfını bul ve override et
+          img_patterns = [
+              "smali*/com/anthropic/claude/configs/flags/ImageUploadConfig.smali",
+              "smali*/com/anthropic/claude/configs/flags/PhotoUploadConfig.smali",
+              "smali*/com/anthropic/claude/configs/flags/MediaUploadConfig.smali",
+          ]
+          found_img = False
+          for img_glob in img_patterns:
+              img_list = list(Path("work").glob(img_glob))
+              for img_path in img_list:
+                  found_img = True
+                  img_text = img_path.read_text(encoding="utf-8")
+                  for method_name in ["getMax_per_message_upload_count", "getMax_image_count",
+                                      "getMax_per_message_image_count", "getMax_image_size_bytes",
+                                      "getMax_in_context_file_bytes", "getMax_inline_paste_bytes"]:
+                      pat = re.compile(
+                          rf'(\.method public final {re.escape(method_name)}\(\)I\s*\n)'
+                          r'.*?'
+                          r'(\.end method)',
+                          re.DOTALL
+                      )
+                      repl = (
+                          r'\g<1>'
+                          f'    .locals 1\n\n'
+                          f'    const v0, 0x7ffe0000\n\n'
+                          f'    return v0\n'
+                          r'\g<2>'
+                      )
+                      img_text, n_img = pat.subn(repl, img_text)
+                      if n_img > 0:
+                          print(f"✓ {img_path.name}: {method_name} → max")
+                  img_path.write_text(img_text, encoding="utf-8")
+          if not found_img:
+              print("⚠ ImageUploadConfig/PhotoUploadConfig bulunamadı — FileUploadConfig zaten patched")
           PY
 
-          echo "=== FileUploadConfig + p8.F/x patch tamamlandı ==="
+          echo "=== FileUploadConfig + p8.F/x + FeatureAccess + ImageUpload patch tamamlandı ==="
 
       - name: JSON deserializer seviyesinde sunucu yanıtlarını override et
         run: |
@@ -586,9 +706,58 @@ jobs:
           # g2d.smali deserializer da rate_limit_tier'ı "max" olarak set ediyor —
           # constructor field patch'ine gerek yok.
 
+          # ═══════════════════════════════════════════════════════════════════════
+          # PATCH 3: o6c.smali — ModelSelectorEntry badge alanını null yap
+          #   Sunucu JSON'undaki badge (Pro etiketi) null olarak override edilir.
+          #   Bu, model selector'da görünen "Pro" badge'lerini kaldırır.
+          # ═══════════════════════════════════════════════════════════════════════
+          if o6c_candidates:
+              o6c_path2 = o6c_candidates[0]
+              o6c_text2 = o6c_path2.read_text(encoding="utf-8")
+              badge_reg = None
+              # Badge register'ını bul: iput-object vXX, v7, ...->badge pattern
+              import re as _re
+              badge_match = _re.search(
+                  r'iput-object (v\d+), v7, Lcom/anthropic/(?:claude|velaud)/api/model/ModelSelectorEntry;->badge:',
+                  o6c_text2
+              )
+              if badge_match:
+                  badge_reg = badge_match.group(1)
+                  # Badge register'ını new-instance'dan önce null yap
+                  inject_badge = (
+                      f"    # velaud: badge daima null — sunucu Pro etiketleri kaldırıldı\n"
+                      f"    const/4 {badge_reg}, 0x0\n"
+                  )
+                  anchor = "    new-instance v7, Lcom/anthropic/claude/api/model/ModelSelectorEntry;"
+                  anchor_v = "    new-instance v7, Lcom/anthropic/velaud/api/model/ModelSelectorEntry;"
+                  if anchor in o6c_text2 and "# velaud: badge daima null" not in o6c_text2:
+                      o6c_text2 = o6c_text2.replace(anchor, inject_badge + anchor, 1)
+                      o6c_path2.write_text(o6c_text2, encoding="utf-8")
+                      print(f"✓ o6c.smali: badge → null ({badge_reg}) ({o6c_path2})")
+                  elif anchor_v in o6c_text2 and "# velaud: badge daima null" not in o6c_text2:
+                      o6c_text2 = o6c_text2.replace(anchor_v, inject_badge + anchor_v, 1)
+                      o6c_path2.write_text(o6c_text2, encoding="utf-8")
+                      print(f"✓ o6c.smali: badge → null (velaud ns) ({badge_reg}) ({o6c_path2})")
+                  elif "# velaud: badge daima null" in o6c_text2:
+                      print("✓ o6c.smali badge patch: zaten uygulanmış")
+                  else:
+                      print(f"⚠ o6c.smali: badge injection anchor bulunamadı")
+              else:
+                  print(f"⚠ o6c.smali: badge register bulunamadı")
+
+          # PATCH 4 kaldırıldı: Organization.<init> iput-object patchi VerifyError'a yol açıyordu.
+          # Sebep: constructor'da v0 lokal register mevcut olmayabilir (`.locals 0`)
+          # ya da v0 type tracking açısından yanlış type'a sahip olabilir.
+          # getRate_limit_tier() getter zaten "max" döndürüyor (önceki patch),
+          # g2d.smali deserializer da rate_limit_tier'ı "max" olarak set ediyor —
+          # constructor field patch'ine gerek yok.
+
           print("\n=== JSON deserializer override patch özeti ===")
           print("g2d.smali (Org deserializer) → rate_limit_tier = \"max\"")
-          print("o6c.smali (ModelSelectorEntry deserializer) → disabled = false")
+          print("o6c.smali (ModelSelectorEntry deserializer) → disabled = false, badge = null")
+          print("Organization.getRaven_type() → null (Team badge kaldırıldı)")
+          print("ModelSelectorEntry.getBadge() → null (Pro etiketleri kaldırıldı)")
+          print("FeatureAccess.getStatus() → AVAILABLE (model erişim engeli kaldırıldı)")
           print("Organization.<init> constructor patch → ATLANILDI (VerifyError riski)")
           PY
 
