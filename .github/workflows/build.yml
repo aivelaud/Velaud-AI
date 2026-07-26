@@ -527,28 +527,55 @@ jobs:
               o6c_path = o6c_candidates[0]
               o6c_text = o6c_path.read_text(encoding="utf-8")
 
-              target = "    new-instance v7, Lcom/anthropic/claude/api/model/ModelSelectorEntry;"
-              if target in o6c_text and "# velaud: disabled override" not in o6c_text:
-                  inject = (
-                      "    # velaud: sunucu JSON'unu geç — disabled daima false\n"
-                      "    const/4 v17, 0x0\n\n"
-                  )
-                  o6c_text = o6c_text.replace(target, inject + target, 1)
-                  o6c_path.write_text(o6c_text, encoding="utf-8")
-                  print(f"✓ o6c.smali: disabled override → false ({o6c_path})")
-              elif "# velaud: disabled override" in o6c_text:
+              # v17 > v15 olduğundan const/4 (4-bit register, max v15) kullanamayız.
+              # Doğru yaklaşım: new-instance VE const/16 v21,0x0 sonrasına inject et;
+              # v21 zaten 0 olduğundan move/16 v17, v21 kullanabiliriz.
+              # Alternatif: const/16 v17, 0x0  (8-bit AA field, v0-v255 destekler)
+              target_block = (
+                  "    new-instance v7, Lcom/anthropic/claude/api/model/ModelSelectorEntry;\n\n"
+                  "    const/16 v21, 0x0\n"
+                  "    const/16 v22, 0x0\n"
+              )
+              target_block_v = (
+                  "    new-instance v7, Lcom/anthropic/velaud/api/model/ModelSelectorEntry;\n\n"
+                  "    const/16 v21, 0x0\n"
+                  "    const/16 v22, 0x0\n"
+              )
+              inject_suffix = (
+                  "    # velaud: disabled daima false — const/16 ile v17 (>v15) desteklenir\n"
+                  "    const/16 v17, 0x0\n"
+              )
+              if "# velaud: disabled daima false" in o6c_text:
                   print("✓ o6c.smali: zaten patched")
+              elif target_block in o6c_text:
+                  o6c_text = o6c_text.replace(
+                      target_block,
+                      target_block + inject_suffix,
+                      1
+                  )
+                  o6c_path.write_text(o6c_text, encoding="utf-8")
+                  print(f"✓ o6c.smali: disabled override → false (const/16 v17) ({o6c_path})")
+              elif target_block_v in o6c_text:
+                  o6c_text = o6c_text.replace(
+                      target_block_v,
+                      target_block_v + inject_suffix.replace("claude", "velaud"),
+                      1
+                  )
+                  o6c_path.write_text(o6c_text, encoding="utf-8")
+                  print(f"✓ o6c.smali: fallback (velaud ns) disabled override patched")
               else:
-                  # Fallback: velaud namespace
-                  target_v = "    new-instance v7, Lcom/anthropic/velaud/api/model/ModelSelectorEntry;"
-                  if target_v in o6c_text:
-                      inject = (
-                          "    # velaud: sunucu JSON'unu geç — disabled daima false\n"
-                          "    const/4 v17, 0x0\n\n"
-                      )
-                      o6c_text = o6c_text.replace(target_v, inject + target_v, 1)
-                      o6c_path.write_text(o6c_text, encoding="utf-8")
-                      print(f"✓ o6c.smali: fallback (velaud ns) patched")
+                  # Son çare: tek satır new-instance ile dene, const/16 kullan
+                  for ns in ["claude", "velaud"]:
+                      t = f"    new-instance v7, Lcom/anthropic/{ns}/api/model/ModelSelectorEntry;"
+                      if t in o6c_text:
+                          o6c_text = o6c_text.replace(
+                              t,
+                              t + "\n    # velaud: disabled daima false\n    const/16 v17, 0x0",
+                              1
+                          )
+                          o6c_path.write_text(o6c_text, encoding="utf-8")
+                          print(f"✓ o6c.smali: son çare inject ({ns} ns)")
+                          break
                   else:
                       print(f"⚠ o6c.smali: injection target bulunamadı")
 
