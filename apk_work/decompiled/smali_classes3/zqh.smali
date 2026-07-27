@@ -1,0 +1,343 @@
+.class public final Lzqh;
+.super Ljava/lang/Object;
+.source "SourceFile"
+
+# interfaces
+.implements Lbrh;
+
+
+# instance fields
+.field public final a:Lv1e;
+
+.field public final b:Ljava/lang/String;
+
+.field public final c:J
+
+.field public final d:Ljava/lang/String;
+
+.field public final e:Ljava/lang/String;
+
+.field public final f:Ljava/lang/String;
+
+.field public final g:Z
+
+.field public final h:Ld2e;
+
+
+# direct methods
+.method public constructor <init>(Lv1e;Ljava/lang/String;JLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Z)V
+    .locals 0
+
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    iput-object p1, p0, Lzqh;->a:Lv1e;
+
+    iput-object p2, p0, Lzqh;->b:Ljava/lang/String;
+
+    iput-wide p3, p0, Lzqh;->c:J
+
+    iput-object p5, p0, Lzqh;->d:Ljava/lang/String;
+
+    iput-object p6, p0, Lzqh;->e:Ljava/lang/String;
+
+    iput-object p7, p0, Lzqh;->f:Ljava/lang/String;
+
+    iput-boolean p8, p0, Lzqh;->g:Z
+
+    if-eqz p8, :cond_0
+
+    sget-object p1, Ld2e;->E:Ld2e;
+
+    goto :goto_0
+
+    :cond_0
+    sget-object p1, Ld2e;->G:Ld2e;
+
+    :goto_0
+    iput-object p1, p0, Lzqh;->h:Ld2e;
+
+    return-void
+.end method
+
+
+# virtual methods
+.method public final a()Lv1e;
+    .locals 0
+
+    iget-object p0, p0, Lzqh;->a:Lv1e;
+
+    return-object p0
+.end method
+
+.method public final b()Ljava/lang/String;
+    .locals 0
+
+    iget-object p0, p0, Lzqh;->b:Ljava/lang/String;
+
+    return-object p0
+.end method
+
+.method public final c()Ljava/lang/String;
+    .locals 0
+
+    iget-object p0, p0, Lzqh;->d:Ljava/lang/String;
+
+    return-object p0
+.end method
+
+.method public final d()Ld2e;
+    .locals 0
+
+    iget-object p0, p0, Lzqh;->h:Ld2e;
+
+    return-object p0
+.end method
+
+.method public final e()Ljava/lang/String;
+    .locals 0
+
+    iget-object p0, p0, Lzqh;->e:Ljava/lang/String;
+
+    return-object p0
+.end method
+
+.method public final equals(Ljava/lang/Object;)Z
+    .locals 4
+
+    if-ne p0, p1, :cond_0
+
+    goto :goto_1
+
+    :cond_0
+    instance-of v0, p1, Lzqh;
+
+    if-nez v0, :cond_1
+
+    goto :goto_0
+
+    :cond_1
+    check-cast p1, Lzqh;
+
+    iget-object v0, p0, Lzqh;->a:Lv1e;
+
+    iget-object v1, p1, Lzqh;->a:Lv1e;
+
+    invoke-virtual {v0, v1}, Lv1e;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-nez v0, :cond_2
+
+    goto :goto_0
+
+    :cond_2
+    iget-object v0, p0, Lzqh;->b:Ljava/lang/String;
+
+    iget-object v1, p1, Lzqh;->b:Ljava/lang/String;
+
+    invoke-virtual {v0, v1}, Ljava/lang/Object;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-nez v0, :cond_3
+
+    goto :goto_0
+
+    :cond_3
+    iget-wide v0, p0, Lzqh;->c:J
+
+    iget-wide v2, p1, Lzqh;->c:J
+
+    cmp-long v0, v0, v2
+
+    if-eqz v0, :cond_4
+
+    goto :goto_0
+
+    :cond_4
+    iget-object v0, p0, Lzqh;->d:Ljava/lang/String;
+
+    iget-object v1, p1, Lzqh;->d:Ljava/lang/String;
+
+    invoke-virtual {v0, v1}, Ljava/lang/Object;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-nez v0, :cond_5
+
+    goto :goto_0
+
+    :cond_5
+    iget-object v0, p0, Lzqh;->e:Ljava/lang/String;
+
+    iget-object v1, p1, Lzqh;->e:Ljava/lang/String;
+
+    invoke-virtual {v0, v1}, Ljava/lang/Object;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-nez v0, :cond_6
+
+    goto :goto_0
+
+    :cond_6
+    iget-object v0, p0, Lzqh;->f:Ljava/lang/String;
+
+    iget-object v1, p1, Lzqh;->f:Ljava/lang/String;
+
+    invoke-virtual {v0, v1}, Ljava/lang/Object;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-nez v0, :cond_7
+
+    goto :goto_0
+
+    :cond_7
+    iget-boolean p0, p0, Lzqh;->g:Z
+
+    iget-boolean p1, p1, Lzqh;->g:Z
+
+    if-eq p0, p1, :cond_8
+
+    :goto_0
+    const/4 p0, 0x0
+
+    return p0
+
+    :cond_8
+    :goto_1
+    const/4 p0, 0x1
+
+    return p0
+.end method
+
+.method public final f()Z
+    .locals 0
+
+    iget-boolean p0, p0, Lzqh;->g:Z
+
+    return p0
+.end method
+
+.method public final hashCode()I
+    .locals 4
+
+    iget-object v0, p0, Lzqh;->a:Lv1e;
+
+    iget-object v0, v0, Lv1e;->a:Ljava/lang/String;
+
+    invoke-virtual {v0}, Ljava/lang/String;->hashCode()I
+
+    move-result v0
+
+    const/16 v1, 0x1f
+
+    mul-int/2addr v0, v1
+
+    iget-object v2, p0, Lzqh;->b:Ljava/lang/String;
+
+    invoke-static {v0, v1, v2}, Lwsg;->l(IILjava/lang/String;)I
+
+    move-result v0
+
+    iget-wide v2, p0, Lzqh;->c:J
+
+    invoke-static {v0, v2, v3, v1}, Lti6;->f(IJI)I
+
+    move-result v0
+
+    iget-object v2, p0, Lzqh;->d:Ljava/lang/String;
+
+    invoke-static {v0, v1, v2}, Lwsg;->l(IILjava/lang/String;)I
+
+    move-result v0
+
+    iget-object v2, p0, Lzqh;->e:Ljava/lang/String;
+
+    invoke-static {v0, v1, v2}, Lwsg;->l(IILjava/lang/String;)I
+
+    move-result v0
+
+    iget-object v2, p0, Lzqh;->f:Ljava/lang/String;
+
+    invoke-static {v0, v1, v2}, Lwsg;->l(IILjava/lang/String;)I
+
+    move-result v0
+
+    iget-boolean p0, p0, Lzqh;->g:Z
+
+    invoke-static {p0}, Ljava/lang/Boolean;->hashCode(Z)I
+
+    move-result p0
+
+    add-int/2addr p0, v0
+
+    return p0
+.end method
+
+.method public final toString()Ljava/lang/String;
+    .locals 5
+
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    const-string v1, "MaxMonthly20xLimit(productDetails="
+
+    invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    iget-object v1, p0, Lzqh;->a:Lv1e;
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+
+    const-string v1, ", formattedPrice="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    iget-object v1, p0, Lzqh;->b:Ljava/lang/String;
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, ", priceMicros="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    iget-wide v1, p0, Lzqh;->c:J
+
+    invoke-virtual {v0, v1, v2}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+
+    const-string v1, ", basePlanId="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    iget-object v1, p0, Lzqh;->d:Ljava/lang/String;
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, ", offerToken="
+
+    const-string v2, ", priceCurrencyCode="
+
+    iget-object v3, p0, Lzqh;->e:Ljava/lang/String;
+
+    iget-object v4, p0, Lzqh;->f:Ljava/lang/String;
+
+    invoke-static {v0, v1, v3, v2, v4}, Lwsg;->C(Ljava/lang/StringBuilder;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+
+    const-string v1, ", isRecurring="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    iget-boolean p0, p0, Lzqh;->g:Z
+
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
+
+    const-string p0, ")"
+
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object p0
+
+    return-object p0
+.end method

@@ -1,0 +1,24 @@
+.class public final Lzo4;
+.super Ljava/lang/Object;
+.source "SourceFile"
+
+# interfaces
+.implements Lcp4;
+
+
+# instance fields
+.field public final a:Lro3;
+
+
+# direct methods
+.method public constructor <init>(Lro3;)V
+    .locals 0
+
+    invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    iput-object p1, p0, Lzo4;->a:Lro3;
+
+    return-void
+.end method

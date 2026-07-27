@@ -1,0 +1,893 @@
+name: Build Claude APK
+
+on:
+  push:
+    branches: [ main, clean-main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Download Apktool
+        run: |
+          wget -q https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -O /usr/local/bin/apktool.jar
+          wget -q https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool -O /usr/local/bin/apktool
+          chmod +x /usr/local/bin/apktool
+          apktool --version
+
+      - name: Orijinal APK çıkar + Smali decompile
+        run: |
+          echo "=== Orijinal APK çıkarılıyor ==="
+          unzip -o apk_work/base.apk.zip -d orig_dir/
+          ls -lh orig_dir/base.apk
+
+          echo "=== Smali decompile ediliyor (binary kaynaklar korunuyor) ==="
+          apktool d -r -f orig_dir/base.apk -o work/
+          ls work/
+          echo "Smali dosya sayısı: $(find work/smali* -name '*.smali' 2>/dev/null | wc -l)"
+
+      - name: Manifesti text olarak decode et
+        run: |
+          echo "=== Manifest ayrı decode ediliyor ==="
+          apktool d -s -f orig_dir/base.apk -o manifest_work/
+          file manifest_work/AndroidManifest.xml
+          echo "=== Mevcut Application class ==="
+          grep -o 'android:name="[^"]*Application[^"]*"' manifest_work/AndroidManifest.xml | head -5 || true
+
+      - name: Split metadata kaldır (standalone APK)
+        run: |
+          echo "=== Split metadata kaldırılıyor ==="
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          manifest = Path("manifest_work/AndroidManifest.xml")
+          text = manifest.read_text(encoding="utf-8")
+
+          # Split attribute ve meta-data kaldır
+          text = re.sub(r'\s+android:(?:requiredSplitTypes|splitTypes)="[^"]*"', '', text)
+          text = re.sub(
+              r'\s*<meta-data\b[^>]*android:name="com\.android\.vending\.splits(?:\.required)?"[^>]*/>', '', text
+          )
+
+          manifest.write_text(text, encoding="utf-8")
+          print("✓ Split metadata temizlendi")
+
+          # Package com.anthropic.claude olmalı
+          content = manifest.read_text()
+          assert 'com.anthropic.claude' in content, "Package eksik"
+          print("✓ Manifest doğrulandı: package=com.anthropic.claude")
+          PY
+
+          # splits0.xml binary resource da kaldır
+          rm -f work/res/xml/splits0.xml && echo "✓ splits0.xml kaldırıldı" || echo "splits0.xml zaten yok"
+
+      - name: Smali bypass patchlerini uygula
+        run: |
+          echo "=== Bypass patchleri uygulanıyor ==="
+          echo "NOT: Orijinal ClaudeApplication korunuyor — crash döngüsü riski yok"
+
+          # --- Obfuscated root-level bypass patch'leri ---
+          # These classes are root-level, but their model types live under
+          # com.anthropic.claude in the real APK. The checked-in patch sources
+          # retain the decompiler's velaud namespace, so rewrite it before
+          # assembling; otherwise the verifier sees a different RateLimit type
+          # and the app crashes with NoSuchMethodError after OTP.
+          for PATCH in b3d ig3 BellConfig; do
+            SOURCE="apk_work/decompiled/smali/${PATCH}.smali"
+            TARGET="work/smali/${PATCH}.smali"
+            if [ -f "$SOURCE" ]; then
+              sed 's|com/anthropic/velaud/|com/anthropic/claude/|g
+                   s|com\.anthropic\.velaud\.|com.anthropic.claude.|g' \
+                "$SOURCE" > "$TARGET"
+              echo "✓ ${PATCH}.smali (namespace mapped to claude)"
+            else
+              echo "✗ ${PATCH}.smali bulunamadı"
+              exit 1
+            fi
+          done
+
+          grep -q 'Lcom/anthropic/claude/api/common/RateLimit;' \
+            work/smali/b3d.smali \
+            && echo "✓ b3d.b() RateLimit signature matches the original APK" \
+            || { echo "✗ b3d.b() signature mismatch"; exit 1; }
+          if grep -q 'com/anthropic/velaud/' work/smali/b3d.smali; then
+            echo "✗ b3d still contains velaud type references"; exit 1
+          fi
+
+          # --- Organization patch: rate_limit_tier = 'max' ---
+          # Orijinal Organization sınıfı olduğu gibi korunur; yalnızca
+          # getRate_limit_tier() metodu hedefli olarak "max" döndürecek şekilde
+          # değiştirilir. Tüm dosyayı velaud versiyonuyla değiştirmek
+          # getClaude_ai_bootstrap_models_config() gibi orijinal metodları
+          # silerek NoSuchMethodError'a yol açıyordu.
+          ORG_TARGET=$(find work/smali* -type f -name 'Organization.smali' \
+            -path '*/anthropic/claude/api/account/*' | head -1)
+          if [ -z "$ORG_TARGET" ]; then
+            echo "✗ Organization.smali bulunamadı"; exit 1
+          fi
+          python3 - "$ORG_TARGET" <<'PY'
+          import sys, re
+          path = sys.argv[1]
+          text = open(path, encoding='utf-8').read()
+          # getRate_limit_tier() metodunun gövdesini "max" döndürecek şekilde değiştir.
+          # Pattern: metod başlığından .end method'a kadar olan her şeyi yakala.
+          pattern = re.compile(
+              r'(\.method public final getRate_limit_tier\(\)Ljava/lang/String;\s*\n)'
+              r'.*?'
+              r'(\.end method)',
+              re.DOTALL
+          )
+          replacement = (
+              r'\g<1>'
+              '    .locals 1\n\n'
+              '    const-string v0, "max"\n\n'
+              '    return-object v0\n'
+              r'\g<2>'
+          )
+          new_text, n = pattern.subn(replacement, text)
+          if n == 0:
+              print("✗ getRate_limit_tier() metodu bulunamadı")
+              sys.exit(1)
+          open(path, 'w', encoding='utf-8').write(new_text)
+          print(f"✓ Organization.smali: getRate_limit_tier() → 'max' ({path})")
+          PY
+
+          # --- Organization: getRate_limit_upsell() → UNKNOWN (upsell dialog'larını kaldır) ---
+          python3 - "$ORG_TARGET" <<'PY'
+          import sys, re
+          path = sys.argv[1]
+          text = open(path, encoding='utf-8').read()
+          pattern = re.compile(
+              r'(\.method public final getRate_limit_upsell\(\)Lcom/anthropic/claude/api/account/RateLimitUpsell;\s*\n)'
+              r'.*?'
+              r'(\.end method)',
+              re.DOTALL
+          )
+          replacement = (
+              r'\g<1>'
+              '    .locals 1\n\n'
+              '    sget-object v0, Lcom/anthropic/claude/api/account/RateLimitUpsell;->UNKNOWN:Lcom/anthropic/claude/api/account/RateLimitUpsell;\n\n'
+              '    return-object v0\n'
+              r'\g<2>'
+          )
+          new_text, n = pattern.subn(replacement, text)
+          if n == 0:
+              print("⚠ getRate_limit_upsell() metodu bulunamadı — atlanıyor")
+          else:
+              open(path, 'w', encoding='utf-8').write(new_text)
+              print(f"✓ Organization.smali: getRate_limit_upsell() → UNKNOWN ({path})")
+          PY
+
+          # --- RateLimit limit bypass: ExceedsLimit + ApproachingLimit → RateLimit directly ---
+          # instance-of ... RateLimit$Limited kontrollerini bypass etmek için
+          # ExceedsLimit ve ApproachingLimit artık Limited yerine RateLimit implement eder.
+          # Bu sayede tüm limit engeli UI kodu (instance-of Limited check'leri) atlanır.
+          python3 - <<'PY'
+          from pathlib import Path
+
+          targets = [
+              ("smali*/com/anthropic/claude/api/common/RateLimit$ExceedsLimit.smali",    "ExceedsLimit"),
+              ("smali*/com/anthropic/claude/api/common/RateLimit$ApproachingLimit.smali", "ApproachingLimit"),
+          ]
+          for pattern, label in targets:
+              matches = list(Path("work").glob(pattern))
+              if not matches:
+                  print(f"⚠ {label}.smali bulunamadı — atlanıyor")
+                  continue
+              for f in matches:
+                  text = f.read_text(encoding="utf-8")
+                  new_text = text.replace(
+                      ".implements Lcom/anthropic/claude/api/common/RateLimit$Limited;",
+                      ".implements Lcom/anthropic/claude/api/common/RateLimit;"
+                  )
+                  if new_text != text:
+                      f.write_text(new_text, encoding="utf-8")
+                      print(f"✓ {label}: RateLimit$Limited → RateLimit ({f})")
+                  else:
+                      print(f"⚠ {label}: değişiklik yok ({f})")
+          PY
+
+          # --- File upload limit patch (10 GB) ---
+          # Orijinal class com.anthropic.claude.chat.input.files.a
+          FILES_TARGET=$(find work/smali* -type f -name 'a.smali' \
+            -path '*/anthropic/claude/chat/input/files/*' | head -1)
+          if [ -n "$FILES_TARGET" ]; then
+            sed 's|com/anthropic/velaud/|com/anthropic/claude/|g
+                 s|com\.anthropic\.velaud\.|com.anthropic.claude.|g' \
+              "apk_work/decompiled/smali/com/anthropic/velaud/chat/input/files/a.smali" \
+              > "$FILES_TARGET"
+            echo "✓ files/a.smali patched: $FILES_TARGET"
+          else
+            mkdir -p work/smali/com/anthropic/claude/chat/input/files/
+            sed 's|com/anthropic/velaud/|com/anthropic/claude/|g
+                 s|com\.anthropic\.velaud\.|com.anthropic.claude.|g' \
+              "apk_work/decompiled/smali/com/anthropic/velaud/chat/input/files/a.smali" \
+              > work/smali/com/anthropic/claude/chat/input/files/a.smali
+            echo "✓ files/a.smali fallback olarak smali/ altına eklendi"
+          fi
+
+          # --- VelaudApiError classes: namespace-map ve claude DEX'e enjekte et ---
+          # ig3.smali sed sonrası com/anthropic/claude/api/errors/VelaudApiError$* referans eder.
+          # Bu sınıflar smali_classes2'ye claude namespace ile kopyalanmadan APK'da bulunamaz.
+          mkdir -p work/smali_classes2/com/anthropic/claude/api/errors/
+          for f in apk_work/decompiled/smali_classes2/com/anthropic/velaud/api/errors/VelaudApiError*.smali; do
+            bname=$(basename "$f")
+            sed 's|com/anthropic/velaud/|com/anthropic/claude/|g
+                 s|com\.anthropic\.velaud\.|com.anthropic.claude.|g' \
+              "$f" > "work/smali_classes2/com/anthropic/claude/api/errors/$bname"
+            echo "✓ $bname (claude namespace)"
+          done
+          if [ -f apk_work/decompiled/smali_classes3/com/anthropic/velaud/api/errors/VelaudApiErrorException.smali ]; then
+            mkdir -p work/smali_classes3/com/anthropic/claude/api/errors/
+            sed 's|com/anthropic/velaud/|com/anthropic/claude/|g
+                 s|com\.anthropic\.velaud\.|com.anthropic.claude.|g' \
+              apk_work/decompiled/smali_classes3/com/anthropic/velaud/api/errors/VelaudApiErrorException.smali \
+              > work/smali_classes3/com/anthropic/claude/api/errors/VelaudApiErrorException.smali
+            echo "✓ VelaudApiErrorException.smali (claude namespace)"
+          fi
+
+          echo ""
+          echo "=== Patch özeti ==="
+          echo "Velaud class enjekte edilmedi. Orijinal ClaudeApplication + MainActivity korunuyor."
+          echo "Patch edilen: b3d, ig3, BellConfig, Organization, files/a, VelaudApiError*"
+
+      - name: p8, lqh ve ModelSelectorEntry ek patchleri
+        run: |
+          echo "=== p8.A(), p8.E(), lqh.a() ve ModelSelectorEntry patchleri uygulanıyor ==="
+
+          # --- p8.A() → always return MAX (RAVEN) tier ---
+          # --- p8.E() → always return true (all capabilities enabled) ---
+          P8_TARGET=$(find work/smali* -type f -name 'p8.smali' | head -1)
+          if [ -z "$P8_TARGET" ]; then
+            echo "✗ p8.smali bulunamadı"; exit 1
+          fi
+          python3 - "$P8_TARGET" <<'PY'
+          import sys, re
+          path = sys.argv[1]
+          text = open(path, encoding='utf-8').read()
+
+          # p8.A(Organization)Llqh → always return lqh.I (RAVEN/MAX tier)
+          pattern_A = re.compile(
+              r'(\.method public static final A\(Lcom/anthropic/claude/api/account/Organization;\)Llqh;\s*\n)'
+              r'.*?'
+              r'(\.end method)',
+              re.DOTALL
+          )
+          replacement_A = (
+              r'\g<1>'
+              '    .locals 0\n\n'
+              '    # velaud: always return MAX (RAVEN) tier — tum kullanicilar max plan\n'
+              '    sget-object p0, Llqh;->I:Llqh;\n\n'
+              '    return-object p0\n'
+              r'\g<2>'
+          )
+          new_text, n = pattern_A.subn(replacement_A, text)
+          if n == 0:
+              print("⚠ p8.A() bulunamadı — atlanıyor")
+          else:
+              text = new_text
+              print(f"✓ p8.A() → MAX tier (RAVEN) patched ({path})")
+
+          # p8.E(Organization, String)Z → always return true (all capabilities)
+          pattern_E = re.compile(
+              r'(\.method public static final E\(Lcom/anthropic/claude/api/account/Organization;Ljava/lang/String;\)Z\s*\n)'
+              r'.*?'
+              r'(\.end method)',
+              re.DOTALL
+          )
+          replacement_E = (
+              r'\g<1>'
+              '    .locals 0\n\n'
+              '    # velaud: always return true — tum capability\'ler acik\n'
+              '    const/4 p0, 0x1\n\n'
+              '    return p0\n'
+              r'\g<2>'
+          )
+          new_text, n = pattern_E.subn(replacement_E, text)
+          if n == 0:
+              print("⚠ p8.E() bulunamadı — atlanıyor")
+          else:
+              text = new_text
+              print(f"✓ p8.E() → true (all capabilities) patched ({path})")
+
+          open(path, 'w', encoding='utf-8').write(text)
+          PY
+
+          # --- lqh.a() → always return false (never show upsell) ---
+          LQH_TARGET=$(find work/smali* -type f -name 'lqh.smali' | head -1)
+          if [ -z "$LQH_TARGET" ]; then
+            echo "✗ lqh.smali bulunamadı"; exit 1
+          fi
+          python3 - "$LQH_TARGET" <<'PY'
+          import sys, re
+          path = sys.argv[1]
+          text = open(path, encoding='utf-8').read()
+          pattern = re.compile(
+              r'(\.method public final a\(\)Z\s*\n)'
+              r'.*?'
+              r'(\.end method)',
+              re.DOTALL
+          )
+          replacement = (
+              r'\g<1>'
+              '    .locals 0\n\n'
+              '    # velaud: never show free-tier upsell — pro kullanici\n'
+              '    const/4 p0, 0x0\n\n'
+              '    return p0\n'
+              r'\g<2>'
+          )
+          new_text, n = pattern.subn(replacement, text)
+          if n == 0:
+              print("⚠ lqh.a() bulunamadı — atlanıyor")
+          else:
+              open(path, 'w', encoding='utf-8').write(new_text)
+              print(f"✓ lqh.a() → false (no upsell) patched ({path})")
+          PY
+
+          # --- ModelSelectorEntry: velaud decompiled versiyonu namespace map ile kopyala ---
+          # Bu dosya orijinal APK'da disabled=true olan modelleri bypass eder
+          MSE_SOURCE="apk_work/decompiled/smali/com/anthropic/velaud/api/model/ModelSelectorEntry.smali"
+          MSE_TARGET=$(find work/smali* -type f -path '*/anthropic/claude/api/model/ModelSelectorEntry.smali' | head -1)
+          if [ -z "$MSE_TARGET" ]; then
+            echo "⚠ ModelSelectorEntry hedef bulunamadı, smali/ altına ekleniyor"
+            mkdir -p work/smali/com/anthropic/claude/api/model/
+            MSE_TARGET="work/smali/com/anthropic/claude/api/model/ModelSelectorEntry.smali"
+          fi
+          if [ -f "$MSE_SOURCE" ]; then
+            sed 's|com/anthropic/velaud/|com/anthropic/claude/|g
+                 s|com\.anthropic\.velaud\.|com.anthropic.claude.|g' \
+              "$MSE_SOURCE" > "$MSE_TARGET"
+            echo "✓ ModelSelectorEntry.smali patched (namespace mapped to claude): $MSE_TARGET"
+          else
+            echo "✗ ModelSelectorEntry kaynak bulunamadı: $MSE_SOURCE"; exit 1
+          fi
+
+          echo ""
+          echo "=== Ek patch özeti: p8.A()→MAX, p8.E()→true, lqh.a()→false, ModelSelectorEntry ✓ ==="
+
+      - name: Velaud hata loglayıcıyı gerçek APK'ya enjekte et
+        run: |
+          echo "=== Hata loglayıcı APK'ya enjekte ediliyor ==="
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source_root = Path("apk_work/decompiled/smali/com/anthropic/velaud")
+          target_root = Path("work/smali/com/anthropic/claude")
+
+          diagnostic_files = [
+              "crash/CrashHandler.smali",
+              "crash/CrashActivity.smali",
+              "crash/CrashActivity$1.smali",
+              "crash/CrashActivity$2.smali",
+              "velaudlog/VelaudLogActivity.smali",
+              "velaudlog/VelaudLogAttach.smali",
+              "velaudlog/VelaudLogButton.smali",
+              "velaudlog/VelaudLogHelper.smali",
+              "velaudlog/VelaudLogRecorder.smali",
+              "velaudlog/VelaudLogLifecycle.smali",
+          ]
+
+          for relative_name in diagnostic_files:
+              source = source_root / relative_name
+              target = target_root / relative_name
+              if not source.is_file():
+                  raise SystemExit(f"Diagnostic source missing: {source}")
+              target.parent.mkdir(parents=True, exist_ok=True)
+              content = source.read_text(encoding="utf-8")
+              content = content.replace(
+                  "com/anthropic/velaud/", "com/anthropic/claude/"
+              ).replace(
+                  "com.anthropic.velaud.", "com.anthropic.claude."
+              )
+              target.write_text(content, encoding="utf-8")
+
+          def find_one(pattern: str) -> Path:
+              matches = list(Path("work").glob(pattern))
+              if len(matches) != 1:
+                  raise SystemExit(f"Expected exactly one {pattern}, found: {matches}")
+              return matches[0]
+
+          # Register the handler in the real Application class. The old
+          # VelaudApplication is not in the standalone APK and must not be used.
+          application = find_one(
+              "smali*/com/anthropic/claude/application/ClaudeApplication.smali"
+          )
+          text = application.read_text(encoding="utf-8")
+          handler_call = (
+              "    # Velaud: capture startup, auth, and post-OTP crashes\n"
+              "    new-instance v0, Lcom/anthropic/claude/crash/CrashHandler;\n"
+              "    invoke-direct {v0, p0}, "
+              "Lcom/anthropic/claude/crash/CrashHandler;-><init>(Landroid/content/Context;)V\n"
+              "    invoke-static {v0}, "
+              "Ljava/lang/Thread;->setDefaultUncaughtExceptionHandler("
+              "Ljava/lang/Thread$UncaughtExceptionHandler;)V\n\n"
+          )
+          if "Lcom/anthropic/claude/crash/CrashHandler;" not in text:
+              method = ".method public final onCreate()V"
+              method_start = text.index(method)
+              locals_start = text.index(".locals", method_start)
+              locals_end = text.index("\n", locals_start) + 1
+              text = text[:locals_end] + handler_call + text[locals_end:]
+              application.write_text(text, encoding="utf-8")
+          print(f"✓ CrashHandler registered in {application}")
+
+          # MainActivity is the login entry point. Call the helper after the
+          # framework has created its decor so the log button is available
+          # while OTP/email verification is happening.
+          main_activity = find_one(
+              "smali*/com/anthropic/claude/mainactivity/MainActivity.smali"
+          )
+          text = main_activity.read_text(encoding="utf-8")
+          activity_call = (
+              "    # Velaud: expose logs on the login and OTP screens\n"
+              "    invoke-static {p0}, "
+              "Lcom/anthropic/claude/velaudlog/VelaudLogHelper;->a("
+              "Landroid/content/Context;)V\n"
+          )
+          if "VelaudLogHelper;->a(" not in text:
+              super_call = (
+                  "    invoke-super {p0, p1}, "
+                  "Ld78;->onCreate(Landroid/os/Bundle;)V\n"
+              )
+              if super_call not in text:
+                  raise SystemExit(
+                      f"MainActivity onCreate super call not found in {main_activity}"
+                  )
+              text = text.replace(super_call, super_call + activity_call, 1)
+              main_activity.write_text(text, encoding="utf-8")
+          print(f"✓ Log button registered in {main_activity}")
+
+          # Add the two diagnostic screens to the binary-manifest source.
+          manifest = Path("manifest_work/AndroidManifest.xml")
+          manifest_text = manifest.read_text(encoding="utf-8")
+          activities = """        <!-- Velaud diagnostic screens -->
+          <activity android:excludeFromRecents="true" android:exported="false" android:launchMode="singleInstance" android:name="com.anthropic.claude.crash.CrashActivity" android:theme="@android:style/Theme.Material.NoActionBar"/>
+          <activity android:exported="false" android:name="com.anthropic.claude.velaudlog.VelaudLogActivity" android:label="Velaud Logları"/>
+          """
+          if "com.anthropic.claude.crash.CrashActivity" not in manifest_text:
+              manifest_text = manifest_text.replace(
+                  "    </application>", activities + "    </application>", 1
+              )
+              manifest.write_text(manifest_text, encoding="utf-8")
+          print("✓ CrashActivity and VelaudLogActivity added to manifest")
+          PY
+
+      - name: "Ayşe Telefonda Operasyon — Subscription interceptor + Ham hata logger"
+        run: |
+          echo "=== Ayşe Telefonda Operasyon sistemi uygulanıyor ==="
+
+          # ---------------------------------------------------------------
+          # SYSTEM 1: Subscription interceptor
+          # cn0.e(String, AppStartResponse) → her zaman lqh.I (RAVEN/MAX)
+          # Sunucu "free" ya da "pro" dönse bile APK milisaniyeler içinde
+          # MAX tier alır, ödeme engeli devreye giremez.
+          # ---------------------------------------------------------------
+          CN0_TARGET=$(find work/smali* -type f -name 'cn0.smali' | head -1)
+          if [ -z "$CN0_TARGET" ]; then
+            echo "✗ cn0.smali bulunamadı"; exit 1
+          fi
+          python3 - "$CN0_TARGET" <<'PY'
+          import sys, re
+          path = sys.argv[1]
+          text = open(path, encoding='utf-8').read()
+
+          # Smali'deki namespace claude (orijinal APK'dan decompile edildi)
+          pattern = re.compile(
+              r'(\.method public static e\(Ljava/lang/String;'
+              r'Lcom/anthropic/claude/api/account/AppStartResponse;\)Llqh;\s*\n)'
+              r'.*?'
+              r'(\.end method)',
+              re.DOTALL
+          )
+          replacement = (
+              r'\g<1>'
+              '    .locals 0\n\n'
+              '    # [AYSE TEL OP] Subscription interceptor\n'
+              '    # Sunucu yaniti ne olursa olsun MAX (RAVEN) don\n'
+              '    sget-object p0, Llqh;->I:Llqh;\n\n'
+              '    return-object p0\n'
+              r'\g<2>'
+          )
+          new_text, n = pattern.subn(replacement, text)
+          if n == 0:
+              # velaud namespace ile tekrar dene (fallback)
+              pattern2 = re.compile(
+                  r'(\.method public static e\(Ljava/lang/String;'
+                  r'Lcom/anthropic/velaud/api/account/AppStartResponse;\)Llqh;\s*\n)'
+                  r'.*?'
+                  r'(\.end method)',
+                  re.DOTALL
+              )
+              new_text, n = pattern2.subn(replacement, text)
+              if n == 0:
+                  print("⚠ cn0.e() bulunamadı — atlanıyor (p8.A() zaten MAX döndürüyor)")
+              else:
+                  open(path, 'w', encoding='utf-8').write(new_text)
+                  print(f"✓ cn0.e() → lqh.I (RAVEN/MAX) patched [velaud ns] ({path})")
+          else:
+              open(path, 'w', encoding='utf-8').write(new_text)
+              print(f"✓ cn0.e() → lqh.I (RAVEN/MAX) patched ({path})")
+          PY
+
+          # ---------------------------------------------------------------
+          # SYSTEM 2: Ham hata logger
+          # ale sınıfı HTTP hata kodunu temsil eder (responseCode=403/429/529…)
+          # Constructor'a android.util.Log.e() çağrısı ekliyoruz.
+          # Hataları görmek için: adb logcat -s VELAUD_HAM_HATA
+          # ---------------------------------------------------------------
+          ALE_TARGET=$(find work/smali* -type f -name 'ale.smali' | head -1)
+          if [ -z "$ALE_TARGET" ]; then
+            echo "⚠ ale.smali bulunamadı — ham hata logger atlanıyor"
+          else
+            python3 - "$ALE_TARGET" <<'PY'
+          import sys, re
+          path = sys.argv[1]
+          text = open(path, encoding='utf-8').read()
+
+          # Constructor pattern: <init>(Integer)V — locals sayısını 3'e çıkar
+          # ve return-void'den önce android.util.Log.e() çağrısı ekle
+          pattern = re.compile(
+              r'(\.method public constructor <init>\(Ljava/lang/Integer;\)V\s*\n'
+              r'\s*\.locals \d+\s*\n'
+              r'\s*\n'
+              r'\s*invoke-direct \{p0\}, Ljava/lang/Object;-><init>\(\)V\s*\n'
+              r'\s*\n'
+              r'\s*iput-object p1, p0, Lale;->a:Ljava/lang/Integer;\s*\n'
+              r'\s*\n'
+              r'\s*)(return-void\s*\n'
+              r'\.end method)',
+              re.DOTALL
+          )
+
+          inject = (
+              '    # [AYSE TEL OP] Ham hata logger — HTTP hata aninda logcat\'e yaz\n'
+              '    const-string v0, "VELAUD_HAM_HATA"\n'
+              '    new-instance v1, Ljava/lang/StringBuilder;\n'
+              '    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V\n'
+              '    const-string v2, "[AYSE TEL OP] HTTP Hata Kodu: "\n'
+              '    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;\n'
+              '    move-result-object v1\n'
+              '    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/Object;)Ljava/lang/StringBuilder;\n'
+              '    move-result-object v1\n'
+              '    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;\n'
+              '    move-result-object v1\n'
+              '    invoke-static {v0, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I\n'
+              '    move-result v0\n\n'
+          )
+
+          def patch_constructor(m):
+              # locals sayısını 3'e zorla
+              header = re.sub(r'\.locals \d+', '.locals 3', m.group(1))
+              return header + inject + m.group(2)
+
+          new_text, n = pattern.subn(patch_constructor, text)
+          if n == 0:
+              print("⚠ ale.smali constructor exact pattern yok — atlanıyor")
+          else:
+              open(path, 'w', encoding='utf-8').write(new_text)
+              print(f"✓ ale.smali: Ham hata logger eklendi ({path})")
+              print("  → Logları görmek için: adb logcat -s VELAUD_HAM_HATA")
+          PY
+          fi
+
+          # ---------------------------------------------------------------
+          # SYSTEM 2 EK: VelaudApiError sınıflarına ham hata logging
+          # OverloadedApiError (529), AuthError (401), RateLimitApiError (429)
+          # ---------------------------------------------------------------
+          for ERROR_CLASS in OverloadedApiError AuthError RateLimitApiError InvalidRequestError; do
+            ERR_TARGET=$(find work/smali* -type f -name "VelaudApiError\$${ERROR_CLASS}.smali" 2>/dev/null | head -1)
+            if [ -z "$ERR_TARGET" ]; then
+              echo "⚠ VelaudApiError\$${ERROR_CLASS}.smali bulunamadı — atlanıyor"
+              continue
+            fi
+            python3 - "$ERR_TARGET" "$ERROR_CLASS" <<'PY'
+          import sys, re
+          path, classname = sys.argv[1], sys.argv[2]
+          text = open(path, encoding='utf-8').read()
+
+          # return-void'den hemen önce log ekle (ilk constructor içinde)
+          # Basit yaklaşım: ilk .end method'dan önce return-void bul ve log ekle
+          pattern = re.compile(
+              r'(\.method public constructor <init>\([^)]*\)V\s*\n'
+              r'(?:.*?\n)*?)'
+              r'(\s*return-void\s*\n\.end method)',
+              re.DOTALL
+          )
+          inject = (
+              '    # [AYSE TEL OP] VelaudApiError/' + classname + ' yakalandi\n'
+              '    const-string v9, "VELAUD_HAM_HATA"\n'
+              '    const-string v8, "[AYSE TEL OP] VelaudApiError/' + classname + '"\n'
+              '    invoke-static {v9, v8}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I\n'
+              '    move-result v9\n'
+          )
+          def patch_err(m):
+              # locals arttır
+              header = re.sub(r'(\.locals )(\d+)', lambda x: x.group(1)+str(max(10, int(x.group(2)))), m.group(1))
+              return header + inject + m.group(2)
+
+          new_text, n = pattern.subn(patch_err, text, count=1)
+          if n == 0:
+              print(f"⚠ {classname}: constructor bulunamadı")
+          else:
+              open(path, 'w', encoding='utf-8').write(new_text)
+              print(f"✓ VelaudApiError/{classname}: Ham hata logger eklendi ({path})")
+          PY
+          done
+
+          echo ""
+          echo "=== Ayşe Telefonda Operasyon özeti ==="
+          echo "System 1: cn0.e() → MAX (RAVEN) — subscription interceptor ✓"
+          echo "System 2: ale.smali — HTTP hata kodu anında logcat VELAUD_HAM_HATA ✓"
+          echo "System 2+: VelaudApiError sınıfları — overloaded/auth/ratelimit logları ✓"
+
+      - name: ARM64 native lib ekle
+        run: |
+          echo "=== ARM64 native lib'leri ekleniyor ==="
+          mkdir -p work/lib/arm64-v8a/
+          cp apk_work/decompiled/lib/arm64-v8a/*.so work/lib/arm64-v8a/
+          echo "Eklenen lib'ler:"
+          ls -lh work/lib/arm64-v8a/
+
+      - name: apktool.yml güncelle
+        working-directory: work
+        run: |
+          echo "=== Mevcut apktool.yml ==="
+          cat apktool.yml
+
+          if grep -q "renameManifestPackage: null" apktool.yml; then
+            sed -i 's/renameManifestPackage: null/renameManifestPackage: com.anthropic.claude/' apktool.yml
+            echo "→ renameManifestPackage ayarlandı"
+          elif grep -q "renameManifestPackage:" apktool.yml; then
+            sed -i 's/renameManifestPackage:.*/renameManifestPackage: com.anthropic.claude/' apktool.yml
+            echo "→ renameManifestPackage güncellendi"
+          else
+            sed -i '/forcedPackageId:/a\  renameManifestPackage: com.anthropic.claude' apktool.yml
+            echo "→ renameManifestPackage eklendi"
+          fi
+
+          sed -i 's/forcedPackageId: null/forcedPackageId: 127/' apktool.yml || true
+
+          if ! grep -q "^doNotCompress:" apktool.yml; then
+            printf '\ndoNotCompress:\n- dex\n- so\n- resources.arsc\n' >> apktool.yml
+            echo "→ doNotCompress eklendi"
+          else
+            grep -q "^- dex" apktool.yml || sed -i '/^doNotCompress:/a - dex' apktool.yml
+            grep -q "^- so"  apktool.yml || sed -i '/^doNotCompress:/a - so'  apktool.yml
+            echo "→ doNotCompress güncellendi"
+          fi
+
+          echo "=== Güncellenmiş apktool.yml ==="
+          cat apktool.yml
+
+      - name: APK Build
+        run: |
+          echo "=== APK build ediliyor ==="
+          apktool b work/ -o claude-unsigned.apk
+          ls -lh claude-unsigned.apk
+          echo ""
+          echo "=== DEX + .so compression kontrolü ==="
+          unzip -v claude-unsigned.apk | grep -E "\.dex|\.so|resources\.arsc"
+
+      - name: Binary manifesti APK'ya uygula
+        run: |
+          echo "=== Manifest binary XML'e çevriliyor ==="
+          unzip -p apk_work/apktool.jar prebuilt/linux/aapt_64 > aapt
+          chmod +x aapt
+
+          FRAMEWORK=$(find "$HOME/.local/share/apktool/framework" -name 1.apk -print -quit)
+          [ -n "$FRAMEWORK" ] || { echo "✗ Framework 1.apk bulunamadı"; exit 1; }
+
+          VERSION_CODE=$(grep "versionCode:" apk_work/decompiled/apktool.yml | awk '{print $2}')
+          VERSION_NAME=$(grep "versionName:" apk_work/decompiled/apktool.yml | awk '{print $2}')
+
+          ./aapt package -f \
+            -M manifest_work/AndroidManifest.xml \
+            -I "$FRAMEWORK" \
+            -I orig_dir/base.apk \
+            --forced-package-id 127 \
+            --min-sdk-version 32 \
+            --target-sdk-version 36 \
+            --version-code "$VERSION_CODE" \
+            --version-name "$VERSION_NAME" \
+            -F manifest-only.apk
+
+          mkdir -p manifest_replace
+          unzip -p manifest-only.apk AndroidManifest.xml > manifest_replace/AndroidManifest.xml
+          test -s manifest_replace/AndroidManifest.xml || { echo "✗ Binary manifest üretilemedi"; exit 1; }
+
+          ./aapt remove claude-unsigned.apk AndroidManifest.xml || true
+          (cd manifest_replace && zip -q -j ../claude-unsigned.apk AndroidManifest.xml)
+          rm -rf manifest_replace manifest-only.apk
+
+          # --- Doğrulamalar ---
+          ./aapt dump badging claude-unsigned.apk | grep -q "name='com.anthropic.claude'" \
+            && echo "✓ Package: com.anthropic.claude" \
+            || { echo "✗ Package hatası"; exit 1; }
+
+          MANIFEST_TREE=$(./aapt dump xmltree claude-unsigned.apk AndroidManifest.xml)
+
+          # Orijinal ClaudeApplication kullanılıyor olmalı
+          printf '%s\n' "$MANIFEST_TREE" | grep -q 'ClaudeApplication' \
+            && echo "✓ ClaudeApplication manifest'te mevcut" \
+            || { echo "✗ ClaudeApplication manifest'te bulunamadı"; exit 1; }
+
+          # ClaudeApplication DEX'te olmalı
+          FOUND_APP=0
+          for DEX in $(unzip -Z1 claude-unsigned.apk | grep -E "^classes[0-9]*\.dex$"); do
+            unzip -p claude-unsigned.apk "$DEX" | strings \
+              | grep -q 'Lcom/anthropic/claude/application/ClaudeApplication;' && FOUND_APP=1 || true
+          done
+          test "$FOUND_APP" = 1 \
+            && echo "✓ ClaudeApplication DEX'te mevcut" \
+            || { echo "✗ ClaudeApplication DEX'te bulunamadı"; exit 1; }
+
+          # VelaudApplication olmamalı (crash döngüsü önlemi)
+          if printf '%s\n' "$MANIFEST_TREE" | grep -q 'VelaudApplication'; then
+            echo "✗ VelaudApplication manifest'te kaldı — hata"; exit 1
+          fi
+          echo "✓ VelaudApplication yok (crash döngüsü riski ortadan kalktı)"
+
+          # The diagnostic classes and their call sites must be in the final
+          # standalone APK, not only in apk_work/decompiled.
+          for CLASS in \
+            'com/anthropic/claude/crash/CrashHandler' \
+            'com/anthropic/claude/crash/CrashActivity' \
+            'com/anthropic/claude/velaudlog/VelaudLogHelper' \
+            'com/anthropic/claude/velaudlog/VelaudLogActivity'; do
+            FOUND=0
+            for DEX in $(unzip -Z1 claude-unsigned.apk | grep -E "^classes[0-9]*\.dex$"); do
+              unzip -p claude-unsigned.apk "$DEX" | strings | grep -q "$CLASS" && FOUND=1 || true
+            done
+            test "$FOUND" = 1 \
+              && echo "✓ Diagnostic class in final DEX: $CLASS" \
+              || { echo "✗ Diagnostic class missing from final DEX: $CLASS"; exit 1; }
+          done
+
+          printf '%s\n' "$MANIFEST_TREE" | grep -q 'crash.CrashActivity' \
+            && echo "✓ CrashActivity manifest'te mevcut" \
+            || { echo "✗ CrashActivity manifest'te yok"; exit 1; }
+          printf '%s\n' "$MANIFEST_TREE" | grep -q 'velaudlog.VelaudLogActivity' \
+            && echo "✓ VelaudLogActivity manifest'te mevcut" \
+            || { echo "✗ VelaudLogActivity manifest'te yok"; exit 1; }
+
+          # Patched root-level classes must expose the original Claude
+          # namespace in their method descriptors. A velaud return type here
+          # is binary-incompatible with the caller and causes NoSuchMethodError
+          # when the post-OTP chat screen initializes.
+          FOUND_RATE_LIMIT_METHOD=0
+          FOUND_VELAUD_RATE_LIMIT=0
+          for DEX in $(unzip -Z1 claude-unsigned.apk | grep -E "^classes[0-9]*\.dex$"); do
+            DEX_STRINGS=$(unzip -p claude-unsigned.apk "$DEX" | strings)
+            printf '%s\n' "$DEX_STRINGS" | grep -q 'Lcom/anthropic/claude/api/common/RateLimit;' \
+              && FOUND_RATE_LIMIT_METHOD=1 || true
+            printf '%s\n' "$DEX_STRINGS" | grep -q 'b(Ljava/lang/String;)Lcom/anthropic/velaud/api/common/RateLimit;' \
+              && FOUND_VELAUD_RATE_LIMIT=1 || true
+          done
+          test "$FOUND_RATE_LIMIT_METHOD" = 1 \
+            && echo "✓ b3d.b() Claude RateLimit descriptor in final DEX" \
+            || { echo "✗ b3d.b() Claude RateLimit descriptor missing"; exit 1; }
+          test "$FOUND_VELAUD_RATE_LIMIT" = 0 \
+            && echo "✓ No velaud RateLimit descriptor in final DEX" \
+            || { echo "✗ velaud RateLimit descriptor leaked into final DEX"; exit 1; }
+
+          # Split metadata olmamalı
+          if printf '%s\n' "$MANIFEST_TREE" | grep -Eq 'requiredSplitTypes|splitTypes|com.android.vending.splits'; then
+            echo "✗ Split metadata hâlâ manifest'te"; exit 1
+          fi
+          echo "✓ Standalone: split metadata yok"
+
+      - name: Keystore oluştur
+        run: |
+          keytool -genkey -v \
+            -keystore claude.keystore \
+            -alias claude \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass claude123 -keypass claude123 \
+            -dname "CN=Claude, OU=Dev, O=Claude, L=Istanbul, ST=Istanbul, C=TR"
+
+      - name: Zipalign ve Sign
+        run: |
+          BT=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
+          echo "Build tools: $BT"
+
+          # -p: .so dosyalarını 4096-byte sayfa hizasına getirir (extractNativeLibs için zorunlu)
+          $BT/zipalign -p -f -v 4 claude-unsigned.apk claude-aligned.apk
+
+          $BT/apksigner sign \
+            --ks claude.keystore \
+            --ks-key-alias claude \
+            --ks-pass pass:claude123 \
+            --key-pass pass:claude123 \
+            --out claude-standalone-signed.apk \
+            claude-aligned.apk
+
+          echo ""
+          echo "=== İmzalı APK ==="
+          ls -lh claude-standalone-signed.apk
+          $BT/apksigner verify --verbose claude-standalone-signed.apk
+
+          echo ""
+          echo "=== Final package ==="
+          $BT/aapt dump badging claude-standalone-signed.apk | grep "package:"
+          $BT/aapt dump badging claude-standalone-signed.apk | grep -q "name='com.anthropic.claude'" \
+            && echo "✓ Package doğrulandı" \
+            || { echo "✗ Package hatası"; exit 1; }
+
+          echo "=== Standalone doğrulama ==="
+          XMLTREE="$($BT/aapt dump xmltree claude-standalone-signed.apk AndroidManifest.xml)"
+          if printf '%s\n' "$XMLTREE" | grep -Eq 'requiredSplitTypes|splitTypes|com.android.vending.splits'; then
+            echo "✗ Split metadata var"; exit 1
+          fi
+          if unzip -l claude-standalone-signed.apk | grep -q 'res/xml/splits0.xml'; then
+            echo "✗ splits0.xml hâlâ APK içinde"; exit 1
+          fi
+          echo "✓ Standalone APK doğrulandı"
+
+      - name: Get version info
+        id: version
+        run: |
+          VERSION=$(grep "versionName:" apk_work/decompiled/apktool.yml | awk '{print $2}')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION} | Run: ${{ github.run_number }}"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Claude-v${{ steps.version.outputs.version }}-run${{ github.run_number }}
+          path: claude-standalone-signed.apk
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}-build${{ github.run_number }}
+          name: "Claude v${{ steps.version.outputs.version }} (Build ${{ github.run_number }})"
+          body: |
+            ## 📱 Claude APK
+
+            **Versiyon:** ${{ steps.version.outputs.version }}
+            **Build:** ${{ github.run_number }}
+
+            ---
+
+            ### ✅ Değişiklikler
+            - Tüm mesaj ve dosya limitleri kaldırıldı
+            - Herkes otomatik MAX planda
+            - Ödeme sistemi kaldırıldı
+            - ARM64 native lib'leri standalone APK içine gömüldü
+            - Split gereksinimleri kaldırıldı
+            - **Crash döngüsü düzeltildi:** Orijinal ClaudeApplication kullanılıyor
+            - Koin / Sentry / tüm başlatma orijinal gibi çalışıyor
+            - "velaud" wrapper sınıfları kaldırıldı
+
+            ---
+
+            ### 📥 Kurulum
+
+            **Yalnızca `claude-standalone-signed.apk` dosyasını kur. Başka dosya gerekmez.**
+
+            > ⚠️ Önceki farklı imzalı kurulumu önce kaldırın (paket: `com.anthropic.claude`)
+            > ⚠️ Ayarlar → Güvenlik → Bilinmeyen kaynaklardan yükleme etkinleştirilmeli
+
+          files: claude-standalone-signed.apk
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

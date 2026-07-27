@@ -1,0 +1,14 @@
+.class public Landroidx/health/platform/client/proto/InvalidProtocolBufferException$InvalidWireTypeException;
+.super Landroidx/health/platform/client/proto/InvalidProtocolBufferException;
+.source "SourceFile"
+
+
+# annotations
+.annotation system Ldalvik/annotation/EnclosingClass;
+    value = Landroidx/health/platform/client/proto/InvalidProtocolBufferException;
+.end annotation
+
+.annotation system Ldalvik/annotation/InnerClass;
+    accessFlags = 0x9
+    name = "InvalidWireTypeException"
+.end annotation

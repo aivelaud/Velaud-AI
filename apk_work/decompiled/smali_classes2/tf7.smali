@@ -1,0 +1,31 @@
+.class public final Ltf7;
+.super Lncl;
+.source "SourceFile"
+
+
+# static fields
+.field public static final f:Ltf7;
+
+
+# direct methods
+.method static constructor <clinit>()V
+    .locals 1
+
+    new-instance v0, Ltf7;
+
+    invoke-direct {v0}, Ljava/lang/Object;-><init>()V
+
+    sput-object v0, Ltf7;->f:Ltf7;
+
+    return-void
+.end method
+
+
+# virtual methods
+.method public final toString()Ljava/lang/String;
+    .locals 0
+
+    const-string p0, "UnknownGoal()"
+
+    return-object p0
+.end method

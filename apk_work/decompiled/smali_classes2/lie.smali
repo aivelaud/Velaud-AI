@@ -1,0 +1,51 @@
+.class public final Llie;
+.super Lc75;
+.source "SourceFile"
+
+
+# instance fields
+.field public E:F
+
+.field public synthetic F:Ljava/lang/Object;
+
+.field public final synthetic G:Lmie;
+
+.field public H:I
+
+
+# direct methods
+.method public constructor <init>(Lmie;Lc75;)V
+    .locals 0
+
+    iput-object p1, p0, Llie;->G:Lmie;
+
+    invoke-direct {p0, p2}, Lc75;-><init>(La75;)V
+
+    return-void
+.end method
+
+
+# virtual methods
+.method public final invokeSuspend(Ljava/lang/Object;)Ljava/lang/Object;
+    .locals 1
+
+    iput-object p1, p0, Llie;->F:Ljava/lang/Object;
+
+    iget p1, p0, Llie;->H:I
+
+    const/high16 v0, -0x80000000
+
+    or-int/2addr p1, v0
+
+    iput p1, p0, Llie;->H:I
+
+    iget-object p1, p0, Llie;->G:Lmie;
+
+    const/4 v0, 0x0
+
+    invoke-virtual {p1, v0, p0}, Lmie;->w1(FLc75;)Ljava/lang/Object;
+
+    move-result-object p0
+
+    return-object p0
+.end method

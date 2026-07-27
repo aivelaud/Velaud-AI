@@ -1,0 +1,26 @@
+.class public final Ldn0;
+.super Ljava/lang/Object;
+.source "SourceFile"
+
+# interfaces
+.implements Lc7c;
+
+
+# instance fields
+.field public final a:Lhdj;
+
+.field public final b:Lcn0;
+
+
+# direct methods
+.method public constructor <init>(Lhdj;Lcn0;)V
+    .locals 0
+
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    iput-object p1, p0, Ldn0;->a:Lhdj;
+
+    iput-object p2, p0, Ldn0;->b:Lcn0;
+
+    return-void
+.end method

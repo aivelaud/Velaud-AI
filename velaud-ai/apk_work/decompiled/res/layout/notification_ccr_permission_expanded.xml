@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="wrap_content"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <TextView android:ellipsize="end" android:id="@id/ccr_title" android:layout_width="fill_parent" android:layout_height="wrap_content" android:maxLines="1" style="@style/TextAppearance.Compat.Notification.Title" />
+    <TextView android:ellipsize="end" android:id="@id/ccr_context" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="4.0dip" android:maxLines="3" style="@style/TextAppearance.Compat.Notification" />
+    <TextView android:ellipsize="end" android:id="@id/ccr_body" android:background="@drawable/bg_ccr_code_block" android:padding="8.0dip" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="6.0dip" android:maxLines="8" android:fontFamily="monospace" style="@style/TextAppearance.Compat.Notification" />
+</LinearLayout>
