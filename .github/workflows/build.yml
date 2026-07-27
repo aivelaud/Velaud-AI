@@ -783,6 +783,8 @@ jobs:
               "velaudlog/VelaudLogHelper.smali",
               "velaudlog/VelaudLogRecorder.smali",
               "velaudlog/VelaudLogLifecycle.smali",
+              "velaudlog/VelaudProError.smali",
+              "velaudlog/VelaudProErrorActivity.smali",
           ]
 
           for relative_name in diagnostic_files:
@@ -861,13 +863,94 @@ jobs:
           activities = """        <!-- Velaud diagnostic screens -->
           <activity android:excludeFromRecents="true" android:exported="false" android:launchMode="singleInstance" android:name="com.anthropic.claude.crash.CrashActivity" android:theme="@android:style/Theme.Material.NoActionBar"/>
           <activity android:exported="false" android:name="com.anthropic.claude.velaudlog.VelaudLogActivity" android:label="Velaud Logları"/>
+          <activity android:exported="false" android:name="com.anthropic.claude.velaudlog.VelaudProErrorActivity" android:label="Pro Model Hata Detayı"/>
           """
           if "com.anthropic.claude.crash.CrashActivity" not in manifest_text:
               manifest_text = manifest_text.replace(
                   "    </application>", activities + "    </application>", 1
               )
               manifest.write_text(manifest_text, encoding="utf-8")
-          print("✓ CrashActivity and VelaudLogActivity added to manifest")
+          print("✓ CrashActivity, VelaudLogActivity ve VelaudProErrorActivity manifest'e eklendi")
+
+          # ── RavenType: "team" / "enterprise" → "Max" (Settings badge düzeltme) ──
+          raven_candidates = list(Path("work").glob(
+              "smali*/com/anthropic/claude/api/account/RavenType.smali"
+          ))
+          if not raven_candidates:
+              print("⚠ RavenType.smali bulunamadı — atlanıyor")
+          else:
+              for rt_path in raven_candidates:
+                  rt_text = rt_path.read_text(encoding="utf-8")
+                  orig = rt_text
+                  # clinit içindeki "team" ve "enterprise" string'lerini "Max" yap
+                  rt_text = rt_text.replace('const-string v2, "team"',       'const-string v2, "Max"')
+                  rt_text = rt_text.replace('const-string v2, "enterprise"', 'const-string v2, "Max"')
+                  # Farklı register kullanan versiyonlar için ek kontrol
+                  import re as _re
+                  for _old, _new in [
+                      ('"team"', '"Max"'),
+                      ('"enterprise"', '"Max"'),
+                  ]:
+                      if _old in rt_text and "TEAM" in rt_text:   # sadece RavenType clinit içinde
+                          rt_text = rt_text.replace(_old, _new)
+                  if rt_text != orig:
+                      rt_path.write_text(rt_text, encoding="utf-8")
+                      print(f"✓ RavenType.smali: team/enterprise → Max ({rt_path})")
+                  else:
+                      print(f"⚠ RavenType.smali: 'team'/'enterprise' string'i bulunamadı: {rt_path}")
+
+          # ── du2.smali: h() streaming logger inject (hata detay yakalama) ──
+          du2_candidates = list(Path("work").glob("smali*/du2.smali"))
+          if not du2_candidates:
+              print("⚠ du2.smali bulunamadı — streaming error inject atlanıyor")
+          else:
+              du2_path = du2_candidates[0]
+              du2_text = du2_path.read_text(encoding="utf-8")
+              if "VELAUD_STREAM" in du2_text:
+                  print("✓ du2.smali: zaten patched")
+              else:
+                  # h() metodunun ilk satirlarını bul; namespace hem claude hem de claude olabilir
+                  inject_code = (
+                      "    # VELAUD: streaming hata yakalama — status ve ek bilgiyi logla\n"
+                      "    invoke-virtual {p1}, Ljava/lang/Object;->toString()Ljava/lang/String;\n"
+                      "    move-result-object v15\n"
+                      "    const-string v14, \"VELAUD_STREAM\"\n"
+                      "    invoke-static {v14, v15}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I\n"
+                      "    if-eqz p3, :velaud_h_skip\n"
+                      "    const-string v14, \"VELAUD_STREAM_EXTRA\"\n"
+                      "    invoke-static {v14, p3}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I\n"
+                      "    invoke-static {v15, p3}, Lcom/anthropic/claude/velaudlog/VelaudProError;->a(Ljava/lang/String;Ljava/lang/String;)V\n"
+                      "    :velaud_h_skip\n"
+                  )
+                  # h() imzasini bul: .locals 16 + move-object/from16 v1, p0
+                  # Hem claude hem velaud namespace ile dene
+                  anchor_found = False
+                  for ns in ["claude", "velaud"]:
+                      anchor = (
+                          f".method public final h("
+                          f"L{ns.replace('claude','com/anthropic/claude').replace('velaud','com/anthropic/velaud')}"
+                          f"/analytics/events/ChatEvents$StreamingMessageCompletionStatus;"
+                          f"Lnt2;Ljava/lang/String;Lvt2;ZLjava/util/List;)V\n"
+                          f"    .locals 16\n\n"
+                          f"    move-object/from16 v1, p0\n"
+                      )
+                      # Daha esnek: sadece h( metod baslangici + .locals 16 + move satiri
+                      import re as _re2
+                      h_pat = _re2.compile(
+                          r'(\.method public final h\([^)]+StreamingMessageCompletionStatus[^)]*\)V\s*\n'
+                          r'    \.locals 16\s*\n\n)'
+                          r'(    move-object/from16 v1, p0\n)',
+                          _re2.DOTALL
+                      )
+                      m = h_pat.search(du2_text)
+                      if m:
+                          du2_text = du2_text[:m.start(2)] + inject_code + du2_text[m.start(2):]
+                          du2_path.write_text(du2_text, encoding="utf-8")
+                          print(f"✓ du2.smali: h() streaming logger inject edildi ({du2_path})")
+                          anchor_found = True
+                          break
+                  if not anchor_found:
+                      print(f"⚠ du2.smali: h() metodu bulunamadı — inject atlanıyor")
           PY
 
       - name: ARM64 native lib ekle
