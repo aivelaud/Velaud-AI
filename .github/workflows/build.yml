@@ -801,6 +801,22 @@ jobs:
               )
               target.write_text(content, encoding="utf-8")
 
+          # VelaudLogHelper.appContext private static → public static
+          # VelaudProError aynı paketten bu alana doğrudan erişiyor; private olunca
+          # ART IllegalAccessError fırlatır. Kopyalandıktan sonra görünürlüğü aç.
+          helper_path = target_root / "velaudlog/VelaudLogHelper.smali"
+          if helper_path.is_file():
+              h_text = helper_path.read_text(encoding="utf-8")
+              h_fixed = h_text.replace(
+                  ".field private static appContext:Landroid/content/Context;",
+                  ".field public static appContext:Landroid/content/Context;"
+              )
+              if h_fixed != h_text:
+                  helper_path.write_text(h_fixed, encoding="utf-8")
+                  print("✓ VelaudLogHelper.appContext: private → public")
+              else:
+                  print("⚠ VelaudLogHelper.appContext zaten public veya bulunamadı")
+
           def find_one(pattern: str) -> Path:
               matches = list(Path("work").glob(pattern))
               if len(matches) != 1:
