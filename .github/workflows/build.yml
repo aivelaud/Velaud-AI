@@ -910,16 +910,21 @@ jobs:
                   print("✓ du2.smali: zaten patched")
               else:
                   # h() metodunun ilk satirlarını bul; namespace hem claude hem de claude olabilir
+                  # DİKKAT: invoke-virtual/invoke-static 35c formatı sadece v0-v15 (4-bit) destekler.
+                  # .locals 16 ile p1=v17, p3=v19 — bunlar v0-v15 dışında!
+                  # Çözüm: move-object/from16 ile yüksek register'ları v0-aralığına kopyala.
                   inject_code = (
                       "    # VELAUD: streaming hata yakalama — status ve ek bilgiyi logla\n"
-                      "    invoke-virtual {p1}, Ljava/lang/Object;->toString()Ljava/lang/String;\n"
-                      "    move-result-object v15\n"
-                      "    const-string v14, \"VELAUD_STREAM\"\n"
-                      "    invoke-static {v14, v15}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I\n"
-                      "    if-eqz p3, :velaud_h_skip\n"
-                      "    const-string v14, \"VELAUD_STREAM_EXTRA\"\n"
-                      "    invoke-static {v14, p3}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I\n"
-                      "    invoke-static {v15, p3}, Lcom/anthropic/claude/velaudlog/VelaudProError;->a(Ljava/lang/String;Ljava/lang/String;)V\n"
+                      "    move-object/from16 v0, p1\n"
+                      "    invoke-virtual {v0}, Ljava/lang/Object;->toString()Ljava/lang/String;\n"
+                      "    move-result-object v1\n"
+                      "    const-string v2, \"VELAUD_STREAM\"\n"
+                      "    invoke-static {v2, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I\n"
+                      "    move-object/from16 v0, p3\n"
+                      "    if-eqz v0, :velaud_h_skip\n"
+                      "    const-string v2, \"VELAUD_STREAM_EXTRA\"\n"
+                      "    invoke-static {v2, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I\n"
+                      "    invoke-static {v1, v0}, Lcom/anthropic/claude/velaudlog/VelaudProError;->a(Ljava/lang/String;Ljava/lang/String;)V\n"
                       "    :velaud_h_skip\n"
                   )
                   # h() imzasini bul: .locals 16 + move-object/from16 v1, p0
