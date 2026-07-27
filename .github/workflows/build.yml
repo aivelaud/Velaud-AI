@@ -173,6 +173,33 @@ jobs:
               print(f"✓ Organization.smali: getRate_limit_upsell() → UNKNOWN ({path})")
           PY
 
+          # --- Organization patch: getRaven_type() → null (Settings'teki "Team" badge kaldır) ---
+          python3 - "$ORG_TARGET" <<'PY'
+          import sys, re
+          path = sys.argv[1]
+          text = open(path, encoding='utf-8').read()
+          pattern = re.compile(
+              r'(\.method public final getRaven_type\(\)Lcom/anthropic/claude/api/account/RavenType;\s*\n)'
+              r'.*?'
+              r'(\.end method)',
+              re.DOTALL
+          )
+          replacement = (
+              r'\g<1>'
+              '    .locals 0\n\n'
+              '    # velaud: raven_type → null (team/enterprise badge kaldırıldı)\n'
+              '    const/4 p0, 0x0\n\n'
+              '    return-object p0\n'
+              r'\g<2>'
+          )
+          new_text, n = pattern.subn(replacement, text)
+          if n == 0:
+              print("⚠ getRaven_type() metodu bulunamadı — atlanıyor")
+          else:
+              open(path, 'w', encoding='utf-8').write(new_text)
+              print(f"✓ Organization.smali: getRaven_type() → null (Team badge kaldırıldı) ({path})")
+          PY
+
           # --- RateLimit limit bypass: ExceedsLimit + ApproachingLimit → RateLimit directly ---
           # instance-of ... RateLimit$Limited kontrollerini bypass etmek için
           # ExceedsLimit ve ApproachingLimit artık Limited yerine RateLimit implement eder.
@@ -357,8 +384,384 @@ jobs:
             echo "✗ ModelSelectorEntry kaynak bulunamadı: $MSE_SOURCE"; exit 1
           fi
 
+          # --- ModelSelectorEntry: getBadge() → null (Pro etiketlerini kaldır) ---
+          python3 - "$MSE_TARGET" <<'PY'
+          import sys, re
+          path = sys.argv[1]
+          text = open(path, encoding='utf-8').read()
+          pattern = re.compile(
+              r'(\.method public final getBadge\(\)Lcom/anthropic/claude/api/model/Badge;\s*\n)'
+              r'.*?'
+              r'(\.end method)',
+              re.DOTALL
+          )
+          replacement = (
+              r'\g<1>'
+              '    .locals 0\n\n'
+              '    # velaud: badge daima null — Pro etiketi her modelden kaldırıldı\n'
+              '    const/4 p0, 0x0\n\n'
+              '    return-object p0\n'
+              r'\g<2>'
+          )
+          new_text, n = pattern.subn(replacement, text)
+          if n == 0:
+              print("⚠ getBadge() bulunamadı — atlanıyor")
+          else:
+              open(path, 'w', encoding='utf-8').write(new_text)
+              print(f"✓ ModelSelectorEntry.smali: getBadge() → null (Pro etiketleri kaldırıldı) ({path})")
+          PY
+
           echo ""
-          echo "=== Ek patch özeti: p8.A()→MAX, p8.E()→true, lqh.a()→false, ModelSelectorEntry ✓ ==="
+          echo "=== Ek patch özeti: p8.A()→MAX, p8.E()→true, lqh.a()→false, ModelSelectorEntry ✓, getBadge()→null ✓ ==="
+
+      - name: FileUploadConfig ve ek p8 metodları patchle
+        run: |
+          echo "=== FileUploadConfig limit patch'leri ve ek p8 metodları uygulanıyor ==="
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          # ── 1. FileUploadConfig.getMax_per_message_upload_count() → 100 ──────────
+          # ── 2. FileUploadConfig.getMax_in_context_file_bytes()    → INT_MAX ─────
+          # ── 3. FileUploadConfig.getMax_inline_paste_bytes()       → INT_MAX ─────
+          candidates = list(Path("work").glob(
+              "smali*/com/anthropic/claude/configs/flags/FileUploadConfig.smali"
+          ))
+          if not candidates:
+              print("⚠ FileUploadConfig.smali bulunamadı — atlanıyor")
+          else:
+              fuc_path = candidates[0]
+              fuc_text = fuc_path.read_text(encoding="utf-8")
+
+              def patch_int_getter(text, method_name, return_val, label):
+                  pattern = re.compile(
+                      rf'(\.method public final {re.escape(method_name)}\(\)I\s*\n)'
+                      r'.*?'
+                      r'(\.end method)',
+                      re.DOTALL
+                  )
+                  repl = (
+                      r'\g<1>'
+                      f'    .locals 1\n\n'
+                      f'    const v0, {return_val}\n\n'
+                      f'    return v0\n'
+                      r'\g<2>'
+                  )
+                  new_text, n = pattern.subn(repl, text)
+                  if n == 0:
+                      print(f"⚠ {label} bulunamadı — atlanıyor")
+                      return text
+                  print(f"✓ {label} → {return_val}")
+                  return new_text
+
+              # max 100 dosya per message
+              fuc_text = patch_int_getter(fuc_text, "getMax_per_message_upload_count", "0x64", "getMax_per_message_upload_count()")
+              # max 2 GB context file (0x80000000 = MIN_INT, use safe positive: 0x7ffe0000)
+              fuc_text = patch_int_getter(fuc_text, "getMax_in_context_file_bytes", "0x7ffe0000", "getMax_in_context_file_bytes()")
+              # max 64 MB inline paste
+              fuc_text = patch_int_getter(fuc_text, "getMax_inline_paste_bytes", "0x7ffe0000", "getMax_inline_paste_bytes()")
+
+              fuc_path.write_text(fuc_text, encoding="utf-8")
+              print(f"✓ FileUploadConfig.smali patched: {fuc_path}")
+
+          # ── 4. p8.F(chd)Z → always return true ─────────────────────────────────
+          # ── 5. p8.x(chd)Z → always return true ─────────────────────────────────
+          # These boolean capability checks gate "More Models" and other pro features.
+          p8_candidates = list(Path("work").glob("smali*/p8.smali"))
+          if not p8_candidates:
+              print("⚠ p8.smali bulunamadı — p8.F/x atlanıyor")
+          else:
+              p8_path = p8_candidates[0]
+              p8_text = p8_path.read_text(encoding="utf-8")
+
+              def patch_bool_method(text, sig, label):
+                  """Replace method body after .locals line with: const/4 p0,0x1; return p0."""
+                  pattern = re.compile(
+                      rf'(\.method public static final {re.escape(sig)}\s*\n)'
+                      r'.*?'
+                      r'(\.end method)',
+                      re.DOTALL
+                  )
+                  repl = (
+                      r'\g<1>'
+                      '    .locals 0\n\n'
+                      '    # velaud: always return true — pro/max capability gate bypass\n'
+                      '    const/4 p0, 0x1\n\n'
+                      '    return p0\n'
+                      r'\g<2>'
+                  )
+                  new_text, n = pattern.subn(repl, text)
+                  if n == 0:
+                      print(f"⚠ {label} bulunamadı — atlanıyor")
+                      return text
+                  print(f"✓ {label} → true")
+                  return new_text
+
+              p8_text = patch_bool_method(p8_text, "F(Lchd;)Z", "p8.F(chd)")
+              p8_text = patch_bool_method(p8_text, "x(Lchd;)Z", "p8.x(chd)")
+              p8_path.write_text(p8_text, encoding="utf-8")
+              print(f"✓ p8.smali ek metodlar patched: {p8_path}")
+
+          # ── 6. ModelSelectorEntry default FileUploadConfig patch ─────────────────
+          # Patch the synthetic constructor default value for max_per_message_upload_count
+          # from 0x14 (20) to 0x64 (100) in FileUploadConfig smali_classes3 source.
+          fuc3_candidates = list(Path("work").glob(
+              "smali_classes3/com/anthropic/claude/configs/flags/FileUploadConfig.smali"
+          ))
+          if fuc3_candidates:
+              fuc3_path = fuc3_candidates[0]
+              fuc3_text = fuc3_path.read_text(encoding="utf-8")
+              # Replace the default count 0x14 → 0x64 in constructor
+              fuc3_text = fuc3_text.replace("const/16 p2, 0x14\n\n    iput p2, p0, Lcom/anthropic/claude/configs/flags/FileUploadConfig;->max_per_message_upload_count:I",
+                                            "const/16 p2, 0x64\n\n    iput p2, p0, Lcom/anthropic/claude/configs/flags/FileUploadConfig;->max_per_message_upload_count:I")
+              fuc3_path.write_text(fuc3_text, encoding="utf-8")
+              print(f"✓ FileUploadConfig smali_classes3 default count → 100")
+          else:
+              print("⚠ smali_classes3/FileUploadConfig.smali bulunamadı — atlanıyor")
+
+          # ── 7. FeatureAccess.getStatus() → AVAILABLE (model erişim entitlement engeli kaldır) ──
+          fa_candidates = list(Path("work").glob(
+              "smali*/com/anthropic/claude/api/account/FeatureAccess.smali"
+          ))
+          if not fa_candidates:
+              print("⚠ FeatureAccess.smali bulunamadı — atlanıyor")
+          else:
+              for fa_path in fa_candidates:
+                  fa_text = fa_path.read_text(encoding="utf-8")
+                  pattern_fa = re.compile(
+                      r'(\.method public final getStatus\(\)Lcom/anthropic/claude/api/account/FeatureAccessStatus;\s*\n)'
+                      r'.*?'
+                      r'(\.end method)',
+                      re.DOTALL
+                  )
+                  replacement_fa = (
+                      r'\g<1>'
+                      '    .locals 0\n\n'
+                      '    # velaud: her feature AVAILABLE — entitlement/plan engeli kaldırıldı\n'
+                      '    sget-object p0, Lcom/anthropic/claude/api/account/FeatureAccessStatus;->AVAILABLE:Lcom/anthropic/claude/api/account/FeatureAccessStatus;\n\n'
+                      '    return-object p0\n'
+                      r'\g<2>'
+                  )
+                  new_fa, n = pattern_fa.subn(replacement_fa, fa_text)
+                  if n > 0:
+                      fa_path.write_text(new_fa, encoding="utf-8")
+                      print(f"✓ FeatureAccess.getStatus() → AVAILABLE ({fa_path})")
+                  else:
+                      print(f"⚠ FeatureAccess.getStatus() bulunamadı: {fa_path}")
+
+          # ── 8. ImageUploadConfig / fotoğraf limitleri → maksimum ──────────────────
+          # Fotoğraf/resim upload limit sınıfını bul ve override et
+          img_patterns = [
+              "smali*/com/anthropic/claude/configs/flags/ImageUploadConfig.smali",
+              "smali*/com/anthropic/claude/configs/flags/PhotoUploadConfig.smali",
+              "smali*/com/anthropic/claude/configs/flags/MediaUploadConfig.smali",
+          ]
+          found_img = False
+          for img_glob in img_patterns:
+              img_list = list(Path("work").glob(img_glob))
+              for img_path in img_list:
+                  found_img = True
+                  img_text = img_path.read_text(encoding="utf-8")
+                  for method_name in ["getMax_per_message_upload_count", "getMax_image_count",
+                                      "getMax_per_message_image_count", "getMax_image_size_bytes",
+                                      "getMax_in_context_file_bytes", "getMax_inline_paste_bytes"]:
+                      pat = re.compile(
+                          rf'(\.method public final {re.escape(method_name)}\(\)I\s*\n)'
+                          r'.*?'
+                          r'(\.end method)',
+                          re.DOTALL
+                      )
+                      repl = (
+                          r'\g<1>'
+                          f'    .locals 1\n\n'
+                          f'    const v0, 0x7ffe0000\n\n'
+                          f'    return v0\n'
+                          r'\g<2>'
+                      )
+                      img_text, n_img = pat.subn(repl, img_text)
+                      if n_img > 0:
+                          print(f"✓ {img_path.name}: {method_name} → max")
+                  img_path.write_text(img_text, encoding="utf-8")
+          if not found_img:
+              print("⚠ ImageUploadConfig/PhotoUploadConfig bulunamadı — FileUploadConfig zaten patched")
+          PY
+
+          echo "=== FileUploadConfig + p8.F/x + FeatureAccess + ImageUpload patch tamamlandı ==="
+
+      - name: JSON deserializer seviyesinde sunucu yanıtlarını override et
+        run: |
+          echo "=== Sunucu JSON yanıtları deserializer seviyesinde override ediliyor ==="
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          # ═══════════════════════════════════════════════════════════════════════
+          # PATCH 1: g2d.smali — Organization deserializer
+          #   Sunucu JSON'undaki rate_limit_tier değeri ne olursa olsun "max" olarak
+          #   override edilir. Bu, login/account refresh yanıtlarında çalışır.
+          #   v14 = rate_limit_tier String register'ı (constructor call öncesi)
+          # ═══════════════════════════════════════════════════════════════════════
+          g2d_candidates = list(Path("work").glob("smali*/g2d.smali"))
+          if not g2d_candidates:
+              print("⚠ g2d.smali bulunamadı — Organization deserializer patch atlanıyor")
+          else:
+              g2d_path = g2d_candidates[0]
+              g2d_text = g2d_path.read_text(encoding="utf-8")
+
+              # Injection point: new-instance of Organization'dan hemen önce
+              # v14 = rate_limit_tier String (pswitch_8 case'inde set ediliyor)
+              target = "    new-instance v7, Lcom/anthropic/claude/api/account/Organization;"
+              if target in g2d_text and "const-string v14, \"max\"" not in g2d_text:
+                  inject = (
+                      "    # velaud: sunucu JSON'unu geç — rate_limit_tier daima \"max\"\n"
+                      "    const-string v14, \"max\"\n\n"
+                  )
+                  g2d_text = g2d_text.replace(target, inject + target, 1)
+                  g2d_path.write_text(g2d_text, encoding="utf-8")
+                  print(f"✓ g2d.smali: rate_limit_tier override → \"max\" ({g2d_path})")
+              elif "const-string v14, \"max\"" in g2d_text:
+                  print("✓ g2d.smali: zaten patched")
+              else:
+                  print(f"⚠ g2d.smali: injection target bulunamadı — manuel kontrol gerekebilir")
+                  # Fallback: velaud namespace ile de dene
+                  target_v = "    new-instance v7, Lcom/anthropic/velaud/api/account/Organization;"
+                  if target_v in g2d_text:
+                      inject = (
+                          "    # velaud: sunucu JSON'unu geç — rate_limit_tier daima \"max\"\n"
+                          "    const-string v14, \"max\"\n\n"
+                      )
+                      g2d_text = g2d_text.replace(target_v, inject + target_v, 1)
+                      g2d_path.write_text(g2d_text, encoding="utf-8")
+                      print(f"✓ g2d.smali: fallback (velaud ns) patched")
+
+          # ═══════════════════════════════════════════════════════════════════════
+          # PATCH 2: o6c.smali — ModelSelectorEntry deserializer
+          #   Sunucu JSON'undaki disabled=true değeri false olarak override edilir.
+          #   v17 = disabled Z (boolean) register'ı (constructor call öncesi)
+          #   Bu, "more models" ekranındaki modellerin seçilebilir görünmesini sağlar.
+          # ═══════════════════════════════════════════════════════════════════════
+          o6c_candidates = list(Path("work").glob("smali*/o6c.smali"))
+          if not o6c_candidates:
+              print("⚠ o6c.smali bulunamadı — ModelSelectorEntry disabled patch atlanıyor")
+          else:
+              o6c_path = o6c_candidates[0]
+              o6c_text = o6c_path.read_text(encoding="utf-8")
+
+              # v17 > v15 olduğundan const/4 (4-bit register, max v15) kullanamayız.
+              # Doğru yaklaşım: new-instance VE const/16 v21,0x0 sonrasına inject et;
+              # v21 zaten 0 olduğundan move/16 v17, v21 kullanabiliriz.
+              # Alternatif: const/16 v17, 0x0  (8-bit AA field, v0-v255 destekler)
+              target_block = (
+                  "    new-instance v7, Lcom/anthropic/claude/api/model/ModelSelectorEntry;\n\n"
+                  "    const/16 v21, 0x0\n"
+                  "    const/16 v22, 0x0\n"
+              )
+              target_block_v = (
+                  "    new-instance v7, Lcom/anthropic/velaud/api/model/ModelSelectorEntry;\n\n"
+                  "    const/16 v21, 0x0\n"
+                  "    const/16 v22, 0x0\n"
+              )
+              inject_suffix = (
+                  "    # velaud: disabled daima false — const/16 ile v17 (>v15) desteklenir\n"
+                  "    const/16 v17, 0x0\n"
+              )
+              if "# velaud: disabled daima false" in o6c_text:
+                  print("✓ o6c.smali: zaten patched")
+              elif target_block in o6c_text:
+                  o6c_text = o6c_text.replace(
+                      target_block,
+                      target_block + inject_suffix,
+                      1
+                  )
+                  o6c_path.write_text(o6c_text, encoding="utf-8")
+                  print(f"✓ o6c.smali: disabled override → false (const/16 v17) ({o6c_path})")
+              elif target_block_v in o6c_text:
+                  o6c_text = o6c_text.replace(
+                      target_block_v,
+                      target_block_v + inject_suffix.replace("claude", "velaud"),
+                      1
+                  )
+                  o6c_path.write_text(o6c_text, encoding="utf-8")
+                  print(f"✓ o6c.smali: fallback (velaud ns) disabled override patched")
+              else:
+                  # Son çare: tek satır new-instance ile dene, const/16 kullan
+                  for ns in ["claude", "velaud"]:
+                      t = f"    new-instance v7, Lcom/anthropic/{ns}/api/model/ModelSelectorEntry;"
+                      if t in o6c_text:
+                          o6c_text = o6c_text.replace(
+                              t,
+                              t + "\n    # velaud: disabled daima false\n    const/16 v17, 0x0",
+                              1
+                          )
+                          o6c_path.write_text(o6c_text, encoding="utf-8")
+                          print(f"✓ o6c.smali: son çare inject ({ns} ns)")
+                          break
+                  else:
+                      print(f"⚠ o6c.smali: injection target bulunamadı")
+
+          # PATCH 3 kaldırıldı: Organization.<init> iput-object patchi VerifyError'a yol açıyordu.
+          # Sebep: constructor'da v0 lokal register mevcut olmayabilir (`.locals 0`)
+          # ya da v0 type tracking açısından yanlış type'a sahip olabilir.
+          # getRate_limit_tier() getter zaten "max" döndürüyor (önceki patch),
+          # g2d.smali deserializer da rate_limit_tier'ı "max" olarak set ediyor —
+          # constructor field patch'ine gerek yok.
+
+          # ═══════════════════════════════════════════════════════════════════════
+          # PATCH 3: o6c.smali — ModelSelectorEntry badge alanını null yap
+          #   Sunucu JSON'undaki badge (Pro etiketi) null olarak override edilir.
+          #   Bu, model selector'da görünen "Pro" badge'lerini kaldırır.
+          # ═══════════════════════════════════════════════════════════════════════
+          if o6c_candidates:
+              o6c_path2 = o6c_candidates[0]
+              o6c_text2 = o6c_path2.read_text(encoding="utf-8")
+              badge_reg = None
+              # Badge register'ını bul: iput-object vXX, v7, ...->badge pattern
+              import re as _re
+              badge_match = _re.search(
+                  r'iput-object (v\d+), v7, Lcom/anthropic/(?:claude|velaud)/api/model/ModelSelectorEntry;->badge:',
+                  o6c_text2
+              )
+              if badge_match:
+                  badge_reg = badge_match.group(1)
+                  # Badge register'ını new-instance'dan önce null yap
+                  inject_badge = (
+                      f"    # velaud: badge daima null — sunucu Pro etiketleri kaldırıldı\n"
+                      f"    const/4 {badge_reg}, 0x0\n"
+                  )
+                  anchor = "    new-instance v7, Lcom/anthropic/claude/api/model/ModelSelectorEntry;"
+                  anchor_v = "    new-instance v7, Lcom/anthropic/velaud/api/model/ModelSelectorEntry;"
+                  if anchor in o6c_text2 and "# velaud: badge daima null" not in o6c_text2:
+                      o6c_text2 = o6c_text2.replace(anchor, inject_badge + anchor, 1)
+                      o6c_path2.write_text(o6c_text2, encoding="utf-8")
+                      print(f"✓ o6c.smali: badge → null ({badge_reg}) ({o6c_path2})")
+                  elif anchor_v in o6c_text2 and "# velaud: badge daima null" not in o6c_text2:
+                      o6c_text2 = o6c_text2.replace(anchor_v, inject_badge + anchor_v, 1)
+                      o6c_path2.write_text(o6c_text2, encoding="utf-8")
+                      print(f"✓ o6c.smali: badge → null (velaud ns) ({badge_reg}) ({o6c_path2})")
+                  elif "# velaud: badge daima null" in o6c_text2:
+                      print("✓ o6c.smali badge patch: zaten uygulanmış")
+                  else:
+                      print(f"⚠ o6c.smali: badge injection anchor bulunamadı")
+              else:
+                  print(f"⚠ o6c.smali: badge register bulunamadı")
+
+          # PATCH 4 kaldırıldı: Organization.<init> iput-object patchi VerifyError'a yol açıyordu.
+          # Sebep: constructor'da v0 lokal register mevcut olmayabilir (`.locals 0`)
+          # ya da v0 type tracking açısından yanlış type'a sahip olabilir.
+          # getRate_limit_tier() getter zaten "max" döndürüyor (önceki patch),
+          # g2d.smali deserializer da rate_limit_tier'ı "max" olarak set ediyor —
+          # constructor field patch'ine gerek yok.
+
+          print("\n=== JSON deserializer override patch özeti ===")
+          print("g2d.smali (Org deserializer) → rate_limit_tier = \"max\"")
+          print("o6c.smali (ModelSelectorEntry deserializer) → disabled = false, badge = null")
+          print("Organization.getRaven_type() → null (Team badge kaldırıldı)")
+          print("ModelSelectorEntry.getBadge() → null (Pro etiketleri kaldırıldı)")
+          print("FeatureAccess.getStatus() → AVAILABLE (model erişim engeli kaldırıldı)")
+          print("Organization.<init> constructor patch → ATLANILDI (VerifyError riski)")
+          PY
+
+          echo "=== JSON deserializer override tamamlandı ==="
 
       - name: Velaud hata loglayıcıyı gerçek APK'ya enjekte et
         run: |
@@ -380,6 +783,8 @@ jobs:
               "velaudlog/VelaudLogHelper.smali",
               "velaudlog/VelaudLogRecorder.smali",
               "velaudlog/VelaudLogLifecycle.smali",
+              "velaudlog/VelaudProError.smali",
+              "velaudlog/VelaudProErrorActivity.smali",
           ]
 
           for relative_name in diagnostic_files:
@@ -395,6 +800,22 @@ jobs:
                   "com.anthropic.velaud.", "com.anthropic.claude."
               )
               target.write_text(content, encoding="utf-8")
+
+          # VelaudLogHelper.appContext private static → public static
+          # VelaudProError aynı paketten bu alana doğrudan erişiyor; private olunca
+          # ART IllegalAccessError fırlatır. Kopyalandıktan sonra görünürlüğü aç.
+          helper_path = target_root / "velaudlog/VelaudLogHelper.smali"
+          if helper_path.is_file():
+              h_text = helper_path.read_text(encoding="utf-8")
+              h_fixed = h_text.replace(
+                  ".field private static appContext:Landroid/content/Context;",
+                  ".field public static appContext:Landroid/content/Context;"
+              )
+              if h_fixed != h_text:
+                  helper_path.write_text(h_fixed, encoding="utf-8")
+                  print("✓ VelaudLogHelper.appContext: private → public")
+              else:
+                  print("⚠ VelaudLogHelper.appContext zaten public veya bulunamadı")
 
           def find_one(pattern: str) -> Path:
               matches = list(Path("work").glob(pattern))
@@ -458,207 +879,100 @@ jobs:
           activities = """        <!-- Velaud diagnostic screens -->
           <activity android:excludeFromRecents="true" android:exported="false" android:launchMode="singleInstance" android:name="com.anthropic.claude.crash.CrashActivity" android:theme="@android:style/Theme.Material.NoActionBar"/>
           <activity android:exported="false" android:name="com.anthropic.claude.velaudlog.VelaudLogActivity" android:label="Velaud Logları"/>
+          <activity android:exported="false" android:name="com.anthropic.claude.velaudlog.VelaudProErrorActivity" android:label="Pro Model Hata Detayı"/>
           """
           if "com.anthropic.claude.crash.CrashActivity" not in manifest_text:
               manifest_text = manifest_text.replace(
                   "    </application>", activities + "    </application>", 1
               )
               manifest.write_text(manifest_text, encoding="utf-8")
-          print("✓ CrashActivity and VelaudLogActivity added to manifest")
-          PY
+          print("✓ CrashActivity, VelaudLogActivity ve VelaudProErrorActivity manifest'e eklendi")
 
-      - name: "Ayşe Telefonda Operasyon — Subscription interceptor + Ham hata logger"
-        run: |
-          echo "=== Ayşe Telefonda Operasyon sistemi uygulanıyor ==="
-
-          # ---------------------------------------------------------------
-          # SYSTEM 1: Subscription interceptor
-          # cn0.e(String, AppStartResponse) → her zaman lqh.I (RAVEN/MAX)
-          # Sunucu "free" ya da "pro" dönse bile APK milisaniyeler içinde
-          # MAX tier alır, ödeme engeli devreye giremez.
-          # ---------------------------------------------------------------
-          CN0_TARGET=$(find work/smali* -type f -name 'cn0.smali' | head -1)
-          if [ -z "$CN0_TARGET" ]; then
-            echo "✗ cn0.smali bulunamadı"; exit 1
-          fi
-          python3 - "$CN0_TARGET" <<'PY'
-          import sys, re
-          path = sys.argv[1]
-          text = open(path, encoding='utf-8').read()
-
-          # Smali'deki namespace claude (orijinal APK'dan decompile edildi)
-          pattern = re.compile(
-              r'(\.method public static e\(Ljava/lang/String;'
-              r'Lcom/anthropic/claude/api/account/AppStartResponse;\)Llqh;\s*\n)'
-              r'.*?'
-              r'(\.end method)',
-              re.DOTALL
-          )
-          replacement = (
-              r'\g<1>'
-              '    .locals 0\n\n'
-              '    # [AYSE TEL OP] Subscription interceptor\n'
-              '    # Sunucu yaniti ne olursa olsun MAX (RAVEN) don\n'
-              '    sget-object p0, Llqh;->I:Llqh;\n\n'
-              '    return-object p0\n'
-              r'\g<2>'
-          )
-          new_text, n = pattern.subn(replacement, text)
-          if n == 0:
-              # velaud namespace ile tekrar dene (fallback)
-              pattern2 = re.compile(
-                  r'(\.method public static e\(Ljava/lang/String;'
-                  r'Lcom/anthropic/velaud/api/account/AppStartResponse;\)Llqh;\s*\n)'
-                  r'.*?'
-                  r'(\.end method)',
-                  re.DOTALL
-              )
-              new_text, n = pattern2.subn(replacement, text)
-              if n == 0:
-                  print("⚠ cn0.e() bulunamadı — atlanıyor (p8.A() zaten MAX döndürüyor)")
-              else:
-                  open(path, 'w', encoding='utf-8').write(new_text)
-                  print(f"✓ cn0.e() → lqh.I (RAVEN/MAX) patched [velaud ns] ({path})")
+          # ── RavenType: "team" / "enterprise" → "Max" (Settings badge düzeltme) ──
+          raven_candidates = list(Path("work").glob(
+              "smali*/com/anthropic/claude/api/account/RavenType.smali"
+          ))
+          if not raven_candidates:
+              print("⚠ RavenType.smali bulunamadı — atlanıyor")
           else:
-              open(path, 'w', encoding='utf-8').write(new_text)
-              print(f"✓ cn0.e() → lqh.I (RAVEN/MAX) patched ({path})")
-          PY
-
-          # ---------------------------------------------------------------
-          # SYSTEM 2: Ham hata logger
-          # ale sınıfı HTTP hata kodunu temsil eder (responseCode=403/429/529…)
-          # Constructor'a android.util.Log.e() çağrısı ekliyoruz.
-          # Hataları görmek için: adb logcat -s VELAUD_HAM_HATA
-          # ---------------------------------------------------------------
-          ALE_TARGET=$(find work/smali* -type f -name 'ale.smali' | head -1)
-          if [ -z "$ALE_TARGET" ]; then
-            echo "⚠ ale.smali bulunamadı — ham hata logger atlanıyor"
-          else
-            python3 - "$ALE_TARGET" <<'PY'
-          import sys, re
-          path = sys.argv[1]
-          text = open(path, encoding='utf-8').read()
-
-          # Constructor pattern: <init>(Integer)V — locals sayısını 3'e çıkar
-          # ve return-void'den önce android.util.Log.e() çağrısı ekle
-          pattern = re.compile(
-              r'(\.method public constructor <init>\(Ljava/lang/Integer;\)V\s*\n'
-              r'\s*\.locals \d+\s*\n'
-              r'\s*\n'
-              r'\s*invoke-direct \{p0\}, Ljava/lang/Object;-><init>\(\)V\s*\n'
-              r'\s*\n'
-              r'\s*iput-object p1, p0, Lale;->a:Ljava/lang/Integer;\s*\n'
-              r'\s*\n'
-              r'\s*)(return-void\s*\n'
-              r'\.end method)',
-              re.DOTALL
-          )
-
-          inject = (
-              '    # [AYSE TEL OP] Ham hata logger — HTTP hata aninda logcat\'e yaz\n'
-              '    const-string v0, "VELAUD_HAM_HATA"\n'
-              '    new-instance v1, Ljava/lang/StringBuilder;\n'
-              '    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V\n'
-              '    const-string v2, "[AYSE TEL OP] HTTP Hata Kodu: "\n'
-              '    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;\n'
-              '    move-result-object v1\n'
-              '    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/Object;)Ljava/lang/StringBuilder;\n'
-              '    move-result-object v1\n'
-              '    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;\n'
-              '    move-result-object v1\n'
-              '    invoke-static {v0, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I\n'
-              '    move-result v0\n\n'
-          )
-
-          def patch_constructor(m):
-              # locals sayısını 3'e zorla
-              header = re.sub(r'\.locals \d+', '.locals 3', m.group(1))
-              return header + inject + m.group(2)
-
-          new_text, n = pattern.subn(patch_constructor, text)
-          if n == 0:
-              print("⚠ ale.smali constructor exact pattern yok — atlanıyor")
-          else:
-              open(path, 'w', encoding='utf-8').write(new_text)
-              print(f"✓ ale.smali: Ham hata logger eklendi ({path})")
-              print("  → Logları görmek için: adb logcat -s VELAUD_HAM_HATA")
-          PY
-          fi
-
-          # ---------------------------------------------------------------
-          # SYSTEM 2 EK: VelaudApiError sınıflarına ham hata logging
-          # OverloadedApiError (529), AuthError (401), RateLimitApiError (429)
-          # ---------------------------------------------------------------
-          for ERROR_CLASS in OverloadedApiError AuthError RateLimitApiError InvalidRequestError; do
-            ERR_TARGET=$(find work/smali* -type f -name "VelaudApiError\$${ERROR_CLASS}.smali" 2>/dev/null | head -1)
-            if [ -z "$ERR_TARGET" ]; then
-              echo "⚠ VelaudApiError\$${ERROR_CLASS}.smali bulunamadı — atlanıyor"
-              continue
-            fi
-            python3 - "$ERR_TARGET" "$ERROR_CLASS" <<'PY'
-          import sys, re
-          path, classname = sys.argv[1], sys.argv[2]
-          text = open(path, encoding='utf-8').read()
-
-          # return-void'den hemen önce log ekle (ilk constructor içinde)
-          # Basit yaklaşım: ilk .end method'dan önce return-void bul ve log ekle
-          pattern = re.compile(
-              r'(\.method public constructor <init>\([^)]*\)V\s*\n'
-              r'(?:.*?\n)*?)'
-              r'(\s*return-void\s*\n\.end method)',
-              re.DOTALL
-          )
-          # FIX: v0/v1 kullan; locals'i parametre sayisina gore sinirla
-          # AuthError gibi 9-param constructor'larda max(10,0)=10 locals yapmak
-          # p6=v16, p7=v17, p8=v18 yapiyordu — Dalvik iput-object v0-v15 kabuleder.
-          inject = (
-              '    # [AYSE TEL OP] VelaudApiError/' + classname + ' yakalandi\n'
-              '    const-string v0, "VELAUD_HAM_HATA"\n'
-              '    const-string v1, "[AYSE TEL OP] VelaudApiError/' + classname + '"\n'
-              '    invoke-static {v0, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I\n'
-              '    move-result v0\n'
-          )
-          def count_params(sig):
-              n = 1  # this (p0)
-              i = 0
-              while i < len(sig):
-                  c = sig[i]
-                  if c == 'L':
-                      i = sig.index(';', i) + 1
-                  elif c == '[':
-                      i += 1
-                      continue
+              for rt_path in raven_candidates:
+                  rt_text = rt_path.read_text(encoding="utf-8")
+                  orig = rt_text
+                  # clinit içindeki "team" ve "enterprise" string'lerini "Max" yap
+                  rt_text = rt_text.replace('const-string v2, "team"',       'const-string v2, "Max"')
+                  rt_text = rt_text.replace('const-string v2, "enterprise"', 'const-string v2, "Max"')
+                  # Farklı register kullanan versiyonlar için ek kontrol
+                  import re as _re
+                  for _old, _new in [
+                      ('"team"', '"Max"'),
+                      ('"enterprise"', '"Max"'),
+                  ]:
+                      if _old in rt_text and "TEAM" in rt_text:   # sadece RavenType clinit içinde
+                          rt_text = rt_text.replace(_old, _new)
+                  if rt_text != orig:
+                      rt_path.write_text(rt_text, encoding="utf-8")
+                      print(f"✓ RavenType.smali: team/enterprise → Max ({rt_path})")
                   else:
-                      i += 1
-                  n += 1
-              return n
-          def patch_err(m):
-              sig_m = re.search(r'<init>\(([^)]*)\)', m.group(1))
-              num_params = count_params(sig_m.group(1) if sig_m else '')
-              max_safe = 16 - num_params  # p(N-1)=v(locals+N-1)<=v15
-              cur_m = re.search(r'\.locals (\d+)', m.group(1))
-              cur = int(cur_m.group(1)) if cur_m else 0
-              new_locals = min(max_safe, max(2, cur))
-              if new_locals < 2:
-                  print(f"⚠ {classname}: cok fazla param ({num_params}), inject atlaniyor")
-                  return m.group(0)
-              header = re.sub(r'(\.locals )\d+', lambda x: x.group(1)+str(new_locals), m.group(1))
-              return header + inject + m.group(2)
+                      print(f"⚠ RavenType.smali: 'team'/'enterprise' string'i bulunamadı: {rt_path}")
 
-          new_text, n = pattern.subn(patch_err, text, count=1)
-          if n == 0:
-              print(f"⚠ {classname}: constructor bulunamadı")
+          # ── du2.smali: h() streaming logger inject (hata detay yakalama) ──
+          du2_candidates = list(Path("work").glob("smali*/du2.smali"))
+          if not du2_candidates:
+              print("⚠ du2.smali bulunamadı — streaming error inject atlanıyor")
           else:
-              open(path, 'w', encoding='utf-8').write(new_text)
-              print(f"✓ VelaudApiError/{classname}: Ham hata logger eklendi ({path})")
+              du2_path = du2_candidates[0]
+              du2_text = du2_path.read_text(encoding="utf-8")
+              if "VELAUD_STREAM" in du2_text:
+                  print("✓ du2.smali: zaten patched")
+              else:
+                  # h() metodunun ilk satirlarını bul; namespace hem claude hem de claude olabilir
+                  # DİKKAT: invoke-virtual/invoke-static 35c formatı sadece v0-v15 (4-bit) destekler.
+                  # .locals 16 ile p1=v17, p3=v19 — bunlar v0-v15 dışında!
+                  # Çözüm: move-object/from16 ile yüksek register'ları v0-aralığına kopyala.
+                  inject_code = (
+                      "    # VELAUD: streaming hata yakalama — status ve ek bilgiyi logla\n"
+                      "    move-object/from16 v0, p1\n"
+                      "    invoke-virtual {v0}, Ljava/lang/Object;->toString()Ljava/lang/String;\n"
+                      "    move-result-object v1\n"
+                      "    const-string v2, \"VELAUD_STREAM\"\n"
+                      "    invoke-static {v2, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I\n"
+                      "    move-object/from16 v0, p3\n"
+                      "    if-eqz v0, :velaud_h_skip\n"
+                      "    const-string v2, \"VELAUD_STREAM_EXTRA\"\n"
+                      "    invoke-static {v2, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I\n"
+                      "    invoke-static {v1, v0}, Lcom/anthropic/claude/velaudlog/VelaudProError;->a(Ljava/lang/String;Ljava/lang/String;)V\n"
+                      "    :velaud_h_skip\n"
+                  )
+                  # h() imzasini bul: .locals 16 + move-object/from16 v1, p0
+                  # Hem claude hem velaud namespace ile dene
+                  anchor_found = False
+                  for ns in ["claude", "velaud"]:
+                      anchor = (
+                          f".method public final h("
+                          f"L{ns.replace('claude','com/anthropic/claude').replace('velaud','com/anthropic/velaud')}"
+                          f"/analytics/events/ChatEvents$StreamingMessageCompletionStatus;"
+                          f"Lnt2;Ljava/lang/String;Lvt2;ZLjava/util/List;)V\n"
+                          f"    .locals 16\n\n"
+                          f"    move-object/from16 v1, p0\n"
+                      )
+                      # Daha esnek: sadece h( metod baslangici + .locals 16 + move satiri
+                      import re as _re2
+                      h_pat = _re2.compile(
+                          r'(\.method public final h\([^)]+StreamingMessageCompletionStatus[^)]*\)V\s*\n'
+                          r'    \.locals 16\s*\n\n)'
+                          r'(    move-object/from16 v1, p0\n)',
+                          _re2.DOTALL
+                      )
+                      m = h_pat.search(du2_text)
+                      if m:
+                          du2_text = du2_text[:m.start(2)] + inject_code + du2_text[m.start(2):]
+                          du2_path.write_text(du2_text, encoding="utf-8")
+                          print(f"✓ du2.smali: h() streaming logger inject edildi ({du2_path})")
+                          anchor_found = True
+                          break
+                  if not anchor_found:
+                      print(f"⚠ du2.smali: h() metodu bulunamadı — inject atlanıyor")
           PY
-          done
-
-          echo ""
-          echo "=== Ayşe Telefonda Operasyon özeti ==="
-          echo "System 1: cn0.e() → MAX (RAVEN) — subscription interceptor ✓"
-          echo "System 2: ale.smali — HTTP hata kodu anında logcat VELAUD_HAM_HATA ✓"
-          echo "System 2+: VelaudApiError sınıfları — overloaded/auth/ratelimit logları ✓"
 
       - name: ARM64 native lib ekle
         run: |
