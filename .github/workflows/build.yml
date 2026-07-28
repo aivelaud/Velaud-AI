@@ -974,6 +974,174 @@ jobs:
                       print(f"⚠ du2.smali: h() metodu bulunamadı — inject atlanıyor")
           PY
 
+      - name: "Ayşe Telefonda Operasyonu — Ham hata yakalama"
+        run: |
+          echo "=== Ayşe Telefonda Operasyonu: ham hata yakalama sistemi ==="
+
+          # ---------------------------------------------------------------
+          # SYSTEM 1: ale.smali — HTTP hata kodu interceptor
+          # ale sınıfı HTTP hata kodunu temsil eder (responseCode=403/429/529…)
+          # Constructor'a android.util.Log.e() çağrısı ekliyoruz.
+          # Hataları görmek için: adb logcat -s VELAUD_HAM_HATA
+          # ---------------------------------------------------------------
+          ALE_TARGET=$(find work/smali* -type f -name 'ale.smali' | head -1)
+          if [ -z "$ALE_TARGET" ]; then
+            echo "⚠ ale.smali bulunamadı — HTTP hata logger atlanıyor"
+          else
+            python3 - "$ALE_TARGET" <<'PY'
+          import sys, re
+          path = sys.argv[1]
+          text = open(path, encoding='utf-8').read()
+
+          if 'VELAUD_HAM_HATA' in text:
+              print(f"✓ ale.smali: zaten patched")
+              sys.exit(0)
+
+          # Constructor: <init>(Ljava/lang/Integer;)V
+          # .locals N → .locals 3 (v0,v1,v2 = log tag, msg, StringBuilder)
+          # return-void öncesine HTTP kodu logger enjekte et
+          pattern = re.compile(
+              r'(\.method public constructor <init>\(Ljava/lang/Integer;\)V\s*\n'
+              r'    \.locals \d+\s*\n'
+              r'\s*\n'
+              r'    invoke-direct \{p0\}, Ljava/lang/Object;-><init>\(\)V\s*\n'
+              r'\s*\n'
+              r'    iput-object p1, p0, Lale;->a:Ljava/lang/Integer;\s*\n'
+              r'\s*\n'
+              r')(    return-void\s*\n\.end method)'
+          )
+          inject = (
+              '    # [AYSE TEL OP] HTTP hata kodu yakalandı → VELAUD_HAM_HATA\n'
+              '    if-eqz p1, :ayse_ale_skip\n'
+              '    invoke-virtual {p1}, Ljava/lang/Integer;->intValue()I\n'
+              '    move-result v0\n'
+              '    invoke-static {v0}, Ljava/lang/String;->valueOf(I)Ljava/lang/String;\n'
+              '    move-result-object v1\n'
+              '    new-instance v2, Ljava/lang/StringBuilder;\n'
+              '    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V\n'
+              '    const-string v0, "[AYSE TEL OP] HTTP Hata Kodu: "\n'
+              '    invoke-virtual {v2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;\n'
+              '    move-result-object v2\n'
+              '    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;\n'
+              '    move-result-object v2\n'
+              '    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;\n'
+              '    move-result-object v1\n'
+              '    const-string v0, "VELAUD_HAM_HATA"\n'
+              '    invoke-static {v0, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I\n'
+              '    move-result v0\n'
+              '    :ayse_ale_skip\n'
+          )
+          def patch_ale(m):
+              header = re.sub(r'(\.locals )\d+', r'\g<1>3', m.group(1))
+              return header + inject + m.group(2)
+
+          new_text, n = pattern.subn(patch_ale, text, count=1)
+          if n == 0:
+              print(f"⚠ ale.smali: constructor pattern bulunamadı — basit fallback deneniyor")
+              # Basit fallback: ilk return-void'den önce ekle
+              fb_pat = re.compile(r'(\.method public constructor <init>\(Ljava/lang/Integer;\)V.*?)(    return-void\n\.end method)', re.DOTALL)
+              fb_m = fb_pat.search(text)
+              if fb_m:
+                  fb_inject = (
+                      '    # [AYSE TEL OP] fallback HTTP logger\n'
+                      '    const-string v0, "VELAUD_HAM_HATA"\n'
+                      '    const-string v1, "[AYSE TEL OP] HTTP hata (ale ctor)"\n'
+                      '    invoke-static {v0, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I\n'
+                      '    move-result v0\n'
+                  )
+                  header2 = re.sub(r'(\.locals )(\d+)', lambda x: x.group(1)+str(max(2,int(x.group(2)))), fb_m.group(1))
+                  new_text = text[:fb_m.start()] + header2 + fb_inject + fb_m.group(2) + text[fb_m.end():]
+                  open(path, 'w', encoding='utf-8').write(new_text)
+                  print(f"✓ ale.smali: fallback logger eklendi ({path})")
+              else:
+                  print("✗ ale.smali: hiç patch uygulanamadı")
+          else:
+              open(path, 'w', encoding='utf-8').write(new_text)
+              print(f"✓ ale.smali: HTTP hata logger eklendi ({path})")
+              print("  → adb logcat -s VELAUD_HAM_HATA")
+          PY
+          fi
+
+          # ---------------------------------------------------------------
+          # SYSTEM 2: VelaudApiError alt sınıfları — ham hata logger
+          # Pro model isteğinde oluşan hataları constructor seviyesinde logla.
+          # REGİSTER TAŞMASI KORUMALARI:
+          #   - .locals değeri: min(16 - param_count, max(2, original_locals))
+          #   - Inject için sadece v0 ve v1 kullanılır (her zaman güvenli)
+          # ---------------------------------------------------------------
+          for ERROR_CLASS in OverloadedApiError AuthError RateLimitApiError InvalidRequestError ServerError; do
+            ERR_TARGET=$(find work/smali* -type f -name "VelaudApiError\$${ERROR_CLASS}.smali" 2>/dev/null | head -1)
+            if [ -z "$ERR_TARGET" ]; then
+              echo "⚠ VelaudApiError\$${ERROR_CLASS}.smali bulunamadı — atlanıyor"
+              continue
+            fi
+            python3 - "$ERR_TARGET" "$ERROR_CLASS" <<'PY'
+          import sys, re
+          path, classname = sys.argv[1], sys.argv[2]
+          text = open(path, encoding='utf-8').read()
+
+          if 'VELAUD_HAM_HATA' in text:
+              print(f"✓ VelaudApiError/{classname}: zaten patched")
+              sys.exit(0)
+
+          # İlk constructor'ı bul + param sayısını hesapla
+          ctor_pat = re.compile(
+              r'(\.method public constructor <init>\(([^)]*)\)V\s*\n'
+              r'    \.locals (\d+)\s*\n)',
+          )
+          m = ctor_pat.search(text)
+          if not m:
+              print(f"⚠ VelaudApiError/{classname}: constructor bulunamadı")
+              sys.exit(0)
+
+          # Param register sayısını hesapla (p0=this dahil)
+          param_sig = m.group(2)
+          param_count = 1  # p0 = this
+          i = 0
+          while i < len(param_sig):
+              c = param_sig[i]
+              if c in ('J', 'D'):
+                  param_count += 2
+              elif c == 'L':
+                  param_count += 1
+                  i = param_sig.index(';', i)
+              elif c == '[':
+                  pass  # array prefix, sonraki char tipi belirler
+              else:
+                  param_count += 1
+              i += 1
+
+          orig_locals = int(m.group(3))
+          # Toplam register = locals + params; Dalvik limiti 16 (4-bit encode)
+          # v0/v1 her zaman erişilebilir; locals en az 2 olmalı
+          safe_locals = min(16 - param_count, max(2, orig_locals))
+
+          inject = (
+              '    # [AYSE TEL OP] Ham hata logger — Pro model hatası yakalandı\n'
+              '    const-string v0, "VELAUD_HAM_HATA"\n'
+              f'    const-string v1, "[AYSE TEL OP] VelaudApiError/{classname} yakalandı"\n'
+              '    invoke-static {v0, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I\n'
+              '    move-result v0\n'
+          )
+
+          new_header = m.group(0).replace(
+              f'.locals {orig_locals}',
+              f'.locals {safe_locals}'
+          )
+          new_text = text[:m.start()] + new_header + inject + text[m.end():]
+          open(path, 'w', encoding='utf-8').write(new_text)
+          print(f"✓ VelaudApiError/{classname}: ham hata logger eklendi "
+                f"(locals {orig_locals}→{safe_locals}, params={param_count}) ({path})")
+          PY
+          done
+
+          echo ""
+          echo "=== Ayşe Telefonda Operasyonu özeti ==="
+          echo "System 1: ale.smali — HTTP hata kodu → VELAUD_HAM_HATA logcat ✓"
+          echo "System 2: VelaudApiError (5 sınıf) — ham hata → VELAUD_HAM_HATA logcat ✓"
+          echo "  → Ham hatalar için: adb logcat -s VELAUD_HAM_HATA"
+          echo "  → Streaming hatalar için: adb logcat -s VELAUD_STREAM VELAUD_STREAM_EXTRA"
+
       - name: ARM64 native lib ekle
         run: |
           echo "=== ARM64 native lib'leri ekleniyor ==="
